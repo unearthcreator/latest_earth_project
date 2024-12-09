@@ -7,16 +7,29 @@ import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/annotations/map_annotations_manager.dart';
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_initialization_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
+import 'package:map_mvp_project/src/earth_pages/dialogs/show_annotation_details_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/trash_can_handler.dart';
 import 'package:uuid/uuid.dart'; // for unique IDs
 import 'package:map_mvp_project/models/annotation.dart'; // Your Annotation model
 import 'package:map_mvp_project/repositories/local_annotations_repository.dart'; // Your local repo
 
+class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
+  final void Function(PointAnnotation) onClick;
+
+  MyPointAnnotationClickListener(this.onClick);
+
+  @override
+  bool onPointAnnotationClick(PointAnnotation annotation) {
+    onClick(annotation);
+    return true; // event handled
+  }
+}
+
 class MapGestureHandler {
   final MapboxMap mapboxMap;
   final MapAnnotationsManager annotationsManager;
   final BuildContext context;
-  final LocalAnnotationsRepository localAnnotationsRepository; // Add repository instance
+  final LocalAnnotationsRepository localAnnotationsRepository;
 
   Timer? _longPressTimer;
   Timer? _placementDialogTimer;
@@ -29,17 +42,47 @@ class MapGestureHandler {
   ScreenCoordinate? _lastDragScreenPoint;
   Point? _originalPoint;
 
+  final Map<String, String> _annotationIdMap = {};
+
   String? _chosenTitle;
   String? _chosenDate;
   String _chosenIconName = "mapbox-check"; // Default icon
-  final uuid = Uuid(); // For generating unique IDs
+  final uuid = Uuid();
 
   MapGestureHandler({
     required this.mapboxMap,
     required this.annotationsManager,
     required this.context,
-    required this.localAnnotationsRepository, // pass in repo
-  }) : _trashCanHandler = TrashCanHandler(context: context);
+    required this.localAnnotationsRepository,
+  }) : _trashCanHandler = TrashCanHandler(context: context) {
+    annotationsManager.pointAnnotationManager.addOnPointAnnotationClickListener(
+      MyPointAnnotationClickListener((clickedAnnotation) {
+        logger.i('Annotation tapped: ${clickedAnnotation.id}');
+        final hiveId = _annotationIdMap[clickedAnnotation.id];
+        if (hiveId != null) {
+          _showAnnotationDetailsById(hiveId);
+        } else {
+          logger.w('No recorded Hive id for tapped annotation ${clickedAnnotation.id}');
+        }
+      })
+    );
+  }
+
+  Future<void> _showAnnotationDetailsById(String id) async {
+    final allAnnotations = await localAnnotationsRepository.getAnnotations();
+    Annotation? ann;
+    try {
+      ann = allAnnotations.firstWhere((a) => a.id == id);
+    } catch (e) {
+      ann = null; // If not found, set to null
+    }
+
+    if (ann != null) {
+      showAnnotationDetailsDialog(context, ann);
+    } else {
+      logger.w('No matching Hive annotation found for id: $id');
+    }
+  }
 
   Future<void> handleLongPress(ScreenCoordinate screenPoint) async {
     try {
@@ -139,7 +182,6 @@ class MapGestureHandler {
         logger.i('User confirmed removal - removing annotation ${annotationToRemove.id}.');
         await annotationsManager.removeAnnotation(annotationToRemove);
         removedAnnotation = true;
-        // If you also saved it in Hive, you'd remove it from Hive using the repository here if needed.
       } else {
         logger.i('User cancelled removal - attempting to revert annotation to original position.');
         if (_originalPoint != null) {
@@ -214,7 +256,7 @@ class MapGestureHandler {
           final result = await showAnnotationFormDialog(
             context,
             title: _chosenTitle!,
-            chosenIcon: Icons.star, // placeholder icon in UI
+            chosenIcon: Icons.star,
             date: _chosenDate!,
           );
           logger.i('Annotation form dialog returned: $result');
@@ -225,20 +267,17 @@ class MapGestureHandler {
             if (_longPressPoint != null) {
               logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
 
-              // Load icon image
               final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
               final imageData = bytes.buffer.asUint8List();
 
-              // Add annotation to map
-              await annotationsManager.addAnnotation(
+              final mapAnnotation = await annotationsManager.addAnnotation(
                 _longPressPoint!,
                 image: imageData,
               );
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
 
-              // Now also save to Hive via the repository
-              final id = uuid.v4(); // Generate a unique ID
+              final id = uuid.v4();
               final latitude = _longPressPoint!.coordinates.lat.toDouble();
               final longitude = _longPressPoint!.coordinates.lng.toDouble();
 
@@ -255,7 +294,8 @@ class MapGestureHandler {
               await localAnnotationsRepository.addAnnotation(annotation);
               logger.i('Annotation saved to Hive with id: $id');
 
-              // Quick sanity check: fetch all annotations and log them
+              _annotationIdMap[mapAnnotation.id] = id;
+
               final savedAnnotations = await localAnnotationsRepository.getAnnotations();
               logger.i('Annotations currently in Hive: $savedAnnotations');
 

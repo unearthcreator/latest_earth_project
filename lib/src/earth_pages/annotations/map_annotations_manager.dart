@@ -8,6 +8,9 @@ class MapAnnotationsManager {
  
   MapAnnotationsManager(this._annotationManager);
 
+  // Add a getter to access the underlying annotation manager
+  PointAnnotationManager get pointAnnotationManager => _annotationManager;
+
   Future<PointAnnotation> addAnnotation(Point mapPoint, {Uint8List? image}) async {
     logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng}');
     final annotationOptions = PointAnnotationOptions(
