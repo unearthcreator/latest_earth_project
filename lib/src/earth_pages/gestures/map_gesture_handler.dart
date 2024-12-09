@@ -255,6 +255,10 @@ class MapGestureHandler {
               await localAnnotationsRepository.addAnnotation(annotation);
               logger.i('Annotation saved to Hive with id: $id');
 
+              // Quick sanity check: fetch all annotations and log them
+              final savedAnnotations = await localAnnotationsRepository.getAnnotations();
+              logger.i('Annotations currently in Hive: $savedAnnotations');
+
             } else {
               logger.w('No long press point stored, cannot place annotation.');
             }
