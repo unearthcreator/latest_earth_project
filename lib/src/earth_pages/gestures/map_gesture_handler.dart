@@ -26,8 +26,8 @@ class MapGestureHandler {
 
   // Fields to store user choices from dialogs
   String? _chosenTitle;
-  IconData? _chosenIcon;
   String? _chosenDate;
+  String _chosenIconName = "mapbox-check"; // Default icon name
 
   MapGestureHandler({
     required this.mapboxMap,
@@ -208,27 +208,25 @@ class MapGestureHandler {
         logger.i('Initial form dialog returned: $initialData');
         if (initialData != null) {
           _chosenTitle = initialData['title'] as String;
-          _chosenIcon = initialData['icon'] as IconData?; // Could be null if custom icon logic was used
+          final chosenIconName = initialData['icon'] as String; // icon is a string now
           _chosenDate = initialData['date'] as String;
 
-          logger.i('Got title=$_chosenTitle, icon=$_chosenIcon, date=$_chosenDate from initial dialog. Showing annotation form dialog next.');
+          logger.i('Got title=$_chosenTitle, icon=$chosenIconName, date=$_chosenDate from initial dialog. Showing annotation form dialog next.');
           final result = await showAnnotationFormDialog(
             context,
             title: _chosenTitle!,
-            chosenIcon: _chosenIcon ?? Icons.star, // fallback to star if null
+            chosenIcon: Icons.star, // Using material icon as a placeholder in form dialog
             date: _chosenDate!,
           );
           logger.i('Annotation form dialog returned: $result');
           if (result != null) {
             final note = result['note'] ?? '';
             logger.i('User entered note: $note');
-            // Now we have _longPressPoint, _chosenTitle, _chosenDate, _chosenIcon, and note.
-            // Let's place the annotation on the map at _longPressPoint.
 
             if (_longPressPoint != null) {
               logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
-              // You might need to update annotationsManager.addAnnotation to accept icon/title/note.
-              // For now, just place a default annotation:
+              final text = "$_chosenTitle\n$_chosenDate";
+              // Just use chosenIconName as iconImage. Make sure you add it to the style if needed.
               await annotationsManager.addAnnotation(_longPressPoint!);
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');

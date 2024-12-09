@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // For SvgPicture
 import 'package:map_mvp_project/services/error_handler.dart';
-import 'package:map_mvp_project/src/earth_pages/dialogs/map_icon_selection_dialog.dart'; // For showIconSelectionDialog
 
 Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext context) async {
   logger.i('Showing initial form dialog (title, icon, date).');
   final titleController = TextEditingController();
   final dateController = TextEditingController();
 
-  IconData chosenIcon = Icons.star;
+  // Default to "cross" icon
+  String chosenIconName = "cross";
 
   return showDialog<Map<String, dynamic>?>(
     context: context,
-    barrierDismissible: false, // Ensures user can't dismiss by tapping outside
+    barrierDismissible: false,
     builder: (dialogContext) {
       final screenWidth = MediaQuery.of(dialogContext).size.width;
       return StatefulBuilder(
         builder: (context, setState) {
+          Widget currentIconWidget = SvgPicture.asset(
+            'assets/icons/$chosenIconName.svg',
+            width: 32,
+            height: 32,
+          );
+
           return AlertDialog(
             content: SizedBox(
               width: screenWidth * 0.5,
@@ -69,16 +76,16 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(chosenIcon),
+                        currentIconWidget,
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: () async {
                             logger.i('Opening icon selection dialog from initial form dialog.');
-                            final selectedIcon = await showIconSelectionDialog(dialogContext);
-                            logger.i('Icon selection dialog returned: $selectedIcon');
-                            if (selectedIcon != null) {
+                            final selectedIconName = await _showMapboxIconSelectionDialog(dialogContext);
+                            logger.i('Icon selection dialog returned: $selectedIconName');
+                            if (selectedIconName != null) {
                               setState(() {
-                                chosenIcon = selectedIcon;
+                                chosenIconName = selectedIconName;
                               });
                             }
                           },
@@ -105,7 +112,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
                   logger.i('Continue pressed in initial form dialog.');
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
-                    'icon': chosenIcon,
+                    'icon': chosenIconName, // now a string name from svg
                     'date': dateController.text.trim(),
                   });
                 },
@@ -113,6 +120,49 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
             ],
           );
         },
+      );
+    },
+  );
+}
+
+// Shows a dialog with cricket.svg and cinema.svg as options
+Future<String?> _showMapboxIconSelectionDialog(BuildContext dialogContext) async {
+  final mapboxIcons = [
+    "cricket",
+    "cinema",
+  ];
+
+  return showDialog<String>(
+    context: dialogContext,
+    builder: (iconDialogContext) {
+      return AlertDialog(
+        title: const Text('Select an Icon'),
+        content: SizedBox(
+          width: MediaQuery.of(iconDialogContext).size.width * 0.5,
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: mapboxIcons.map((iconName) {
+              return GestureDetector(
+                onTap: () {
+                  Navigator.of(iconDialogContext).pop(iconName);
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/icons/$iconName.svg',
+                      width: 32,
+                      height: 32,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(iconName, style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
       );
     },
   );

@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.0.0
+  flutter_svg: ^2.0.16
   hive: ^2.0.0
   hive_flutter: ^1.0.0
   freezed_annotation: ^2.4.4
@@ -37,7 +38,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
   assets:
-    - lib/map_core/maps/country_continents.geojson  
-    - lib/map_core/maps/Earth1_Pseudo_Marcader_png.png
+    - assets/icons/
