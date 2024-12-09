@@ -9,5 +9,3 @@ export 'package:map_mvp_project/map_core/map_utils/close_button.dart';
 // Map Transformation Controller: Manages map transformations (zoom, pan, reset)
 export 'package:map_mvp_project/map_core/map_utils/map_transformation_controller.dart';
 
-// Map Image Loader: Loads SVG images with timeout handling
-export 'package:map_mvp_project/map_core/map_utils/map_image_loader.dart';

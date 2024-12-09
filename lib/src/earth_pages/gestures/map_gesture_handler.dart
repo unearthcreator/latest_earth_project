@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data'; // for Uint8List
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // for rootBundle
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/annotations/map_annotations_manager.dart';
-import 'package:map_mvp_project/src/earth_pages/dialogs/map_icon_selection_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_initialization_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/trash_can_handler.dart';
