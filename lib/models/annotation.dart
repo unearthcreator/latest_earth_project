@@ -2,9 +2,8 @@ class Annotation {
   final String id;
   final String title;
   final String iconName;
-  final DateTime date;
+  final String date;
   final String note;
-  final List<String> images;
   final double latitude;
   final double longitude;
 
@@ -14,7 +13,6 @@ class Annotation {
     required this.iconName,
     required this.date,
     required this.note,
-    required this.images,
     required this.latitude,
     required this.longitude,
   });
@@ -24,9 +22,8 @@ class Annotation {
       'id': id,
       'title': title,
       'iconName': iconName,
-      'date': date.toIso8601String(),
+      'date': date,
       'note': note,
-      'images': images,
       'latitude': latitude,
       'longitude': longitude,
     };
@@ -37,9 +34,8 @@ class Annotation {
       id: json['id'] as String,
       title: json['title'] as String,
       iconName: json['iconName'] as String,
-      date: DateTime.parse(json['date'] as String),
+      date: json['date'] as String,
       note: json['note'] as String,
-      images: List<String>.from(json['images'] as List),
       latitude: json['latitude'] as double,
       longitude: json['longitude'] as double,
     );
@@ -47,6 +43,6 @@ class Annotation {
 
   @override
   String toString() {
-    return 'Annotation(id: $id, title: $title, iconName: $iconName, date: $date, note: $note, images: $images, latitude: $latitude, longitude: $longitude)';
+    return 'Annotation(id: $id, title: $title, iconName: $iconName, date: $date, note: $note, latitude: $latitude, longitude: $longitude)';
   }
 }

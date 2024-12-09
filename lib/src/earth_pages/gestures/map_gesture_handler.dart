@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // for rootBundle
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -7,11 +8,15 @@ import 'package:map_mvp_project/src/earth_pages/annotations/map_annotations_mana
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_initialization_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/trash_can_handler.dart';
+import 'package:uuid/uuid.dart'; // for unique IDs
+import 'package:map_mvp_project/models/annotation.dart'; // Your Annotation model
+import 'package:map_mvp_project/repositories/local_annotations_repository.dart'; // Your local repo
 
 class MapGestureHandler {
   final MapboxMap mapboxMap;
   final MapAnnotationsManager annotationsManager;
   final BuildContext context;
+  final LocalAnnotationsRepository localAnnotationsRepository; // Add repository instance
 
   Timer? _longPressTimer;
   Timer? _placementDialogTimer;
@@ -27,11 +32,13 @@ class MapGestureHandler {
   String? _chosenTitle;
   String? _chosenDate;
   String _chosenIconName = "mapbox-check"; // Default icon
+  final uuid = Uuid(); // For generating unique IDs
 
   MapGestureHandler({
     required this.mapboxMap,
     required this.annotationsManager,
     required this.context,
+    required this.localAnnotationsRepository, // pass in repo
   }) : _trashCanHandler = TrashCanHandler(context: context);
 
   Future<void> handleLongPress(ScreenCoordinate screenPoint) async {
@@ -132,6 +139,7 @@ class MapGestureHandler {
         logger.i('User confirmed removal - removing annotation ${annotationToRemove.id}.');
         await annotationsManager.removeAnnotation(annotationToRemove);
         removedAnnotation = true;
+        // If you also saved it in Hive, you'd remove it from Hive using the repository here if needed.
       } else {
         logger.i('User cancelled removal - attempting to revert annotation to original position.');
         if (_originalPoint != null) {
@@ -206,7 +214,7 @@ class MapGestureHandler {
           final result = await showAnnotationFormDialog(
             context,
             title: _chosenTitle!,
-            chosenIcon: Icons.star, // placeholder in form dialog UI
+            chosenIcon: Icons.star, // placeholder icon in UI
             date: _chosenDate!,
           );
           logger.i('Annotation form dialog returned: $result');
@@ -216,19 +224,37 @@ class MapGestureHandler {
 
             if (_longPressPoint != null) {
               logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
-              final text = "$_chosenTitle\n$_chosenDate";
 
-              // Just load the image as bytes, no decoding needed
+              // Load icon image
               final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
               final imageData = bytes.buffer.asUint8List();
 
-              // Now add the annotation with imageData directly
+              // Add annotation to map
               await annotationsManager.addAnnotation(
                 _longPressPoint!,
-                image: imageData, // use 'image' not 'imageData'
+                image: imageData,
               );
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
+
+              // Now also save to Hive via the repository
+              final id = uuid.v4(); // Generate a unique ID
+              final latitude = _longPressPoint!.coordinates.lat.toDouble();
+              final longitude = _longPressPoint!.coordinates.lng.toDouble();
+
+              final annotation = Annotation(
+                id: id,
+                title: _chosenTitle!,
+                iconName: _chosenIconName,
+                date: _chosenDate!,
+                note: note,
+                latitude: latitude,
+                longitude: longitude,
+              );
+
+              await localAnnotationsRepository.addAnnotation(annotation);
+              logger.i('Annotation saved to Hive with id: $id');
+
             } else {
               logger.w('No long press point stored, cannot place annotation.');
             }

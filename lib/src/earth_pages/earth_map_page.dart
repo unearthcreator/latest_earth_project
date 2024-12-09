@@ -4,6 +4,7 @@ import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
 import 'package:map_mvp_project/src/earth_pages/annotations/map_annotations_manager.dart';
 import 'package:map_mvp_project/src/earth_pages/gestures/map_gesture_handler.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
+import 'package:map_mvp_project/repositories/local_annotations_repository.dart'; // Import the local repo
 
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
@@ -43,10 +44,14 @@ class EarthMapPageState extends State<EarthMapPage> {
 
       _annotationsManager = MapAnnotationsManager(annotationManager);
 
+      // Create an instance of LocalAnnotationsRepository
+      final localRepo = LocalAnnotationsRepository();
+
       _gestureHandler = MapGestureHandler(
         mapboxMap: mapboxMap,
         annotationsManager: _annotationsManager,
         context: context,
+        localAnnotationsRepository: localRepo, // Pass the repository here
       );
 
       logger.i('Map initialization completed successfully');
