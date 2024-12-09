@@ -12,7 +12,7 @@ class MapAnnotationsManager {
     logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng}');
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
-      iconSize: 1.0,
+      iconSize: 5.0,
       image: image, // Assign the raw image bytes here if provided
     );
     final annotation = await _annotationManager.create(annotationOptions);
