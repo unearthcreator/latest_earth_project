@@ -9,7 +9,6 @@ import 'package:map_mvp_project/src/earth_pages/dialogs/map_icon_selection_dialo
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_initialization_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/trash_can_handler.dart';
-import 'package:geojson/geojson.dart'; // if needed for Point
 
 class MapGestureHandler {
   final MapboxMap mapboxMap;
@@ -27,10 +26,9 @@ class MapGestureHandler {
   ScreenCoordinate? _lastDragScreenPoint;
   Point? _originalPoint;
 
-  // Fields to store user choices from dialogs
   String? _chosenTitle;
   String? _chosenDate;
-  String _chosenIconName = "mapbox-check"; // Default icon name
+  String _chosenIconName = "mapbox-check"; // Default icon
 
   MapGestureHandler({
     required this.mapboxMap,
@@ -96,24 +94,17 @@ class MapGestureHandler {
   }
 
   Future<void> handleDrag(ScreenCoordinate screenPoint) async {
-    if (!_isDragging || _selectedAnnotation == null) {
-      return;
-    }
+    if (!_isDragging || _selectedAnnotation == null) return;
 
     final annotationToUpdate = _selectedAnnotation;
-    if (annotationToUpdate == null || _isProcessingDrag) {
-      return;
-    }
+    if (annotationToUpdate == null || _isProcessingDrag) return;
 
     try {
       _isProcessingDrag = true;
       _lastDragScreenPoint = screenPoint;
       final newPoint = await mapboxMap.coordinateForPixel(screenPoint);
 
-      if (!_isDragging || _selectedAnnotation == null) {
-        return;
-      }
-
+      if (!_isDragging || _selectedAnnotation == null) return;
       if (newPoint != null) {
         logger.i('Updating annotation ${annotationToUpdate.id} position to $newPoint');
         await annotationsManager.updateVisualPosition(annotationToUpdate, newPoint);
@@ -155,7 +146,6 @@ class MapGestureHandler {
       }
     }
 
-    // Reset state here after decision
     _selectedAnnotation = null;
     _isDragging = false;
     _isProcessingDrag = false;
@@ -211,14 +201,14 @@ class MapGestureHandler {
         logger.i('Initial form dialog returned: $initialData');
         if (initialData != null) {
           _chosenTitle = initialData['title'] as String;
-          _chosenIconName = initialData['icon'] as String; // updated to store chosen icon name
+          _chosenIconName = initialData['icon'] as String;
           _chosenDate = initialData['date'] as String;
 
           logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, date=$_chosenDate from initial dialog. Showing annotation form dialog next.');
           final result = await showAnnotationFormDialog(
             context,
             title: _chosenTitle!,
-            chosenIcon: Icons.star, // placeholder icon for the form UI only
+            chosenIcon: Icons.star, // placeholder in form dialog UI
             date: _chosenDate!,
           );
           logger.i('Annotation form dialog returned: $result');
@@ -230,15 +220,14 @@ class MapGestureHandler {
               logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
               final text = "$_chosenTitle\n$_chosenDate";
 
-              // Load the PNG image as bytes and add it to the style
+              // Just load the image as bytes, no decoding needed
               final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
-              final imageBytes = bytes.buffer.asUint8List();
-              await mapboxMap.style.addImage(_chosenIconName, imageBytes);
+              final imageData = bytes.buffer.asUint8List();
 
-              // Now add the annotation with the chosen icon
+              // Now add the annotation with imageData directly
               await annotationsManager.addAnnotation(
                 _longPressPoint!,
-                iconImage: _chosenIconName,
+                image: imageData, // use 'image' not 'imageData'
               );
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');

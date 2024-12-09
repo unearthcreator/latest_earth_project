@@ -1,5 +1,6 @@
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
+import 'dart:typed_data';
 
 class MapAnnotationsManager {
   final PointAnnotationManager _annotationManager;
@@ -7,12 +8,12 @@ class MapAnnotationsManager {
  
   MapAnnotationsManager(this._annotationManager);
 
-  Future<PointAnnotation> addAnnotation(Point mapPoint, {String iconImage = "mapbox-check"}) async {
-    logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng} with icon: $iconImage');
+  Future<PointAnnotation> addAnnotation(Point mapPoint, {Uint8List? image}) async {
+    logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng}');
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
       iconSize: 1.0,
-      iconImage: iconImage,
+      image: image, // Assign the raw image bytes here if provided
     );
     final annotation = await _annotationManager.create(annotationOptions);
     _annotations.add(annotation);
@@ -38,39 +39,11 @@ class MapAnnotationsManager {
 
   Future<void> updateVisualPosition(PointAnnotation annotation, Point newPoint) async {
     try {
-      // Update only the visual position by modifying the existing annotation
       annotation.geometry = newPoint;
       await _annotationManager.update(annotation);
-     
       logger.i('Updated annotation visual position to: ${newPoint.coordinates.lat}, ${newPoint.coordinates.lng}');
     } catch (e) {
       logger.e('Error updating annotation visual position: $e');
-      throw e;
-    }
-  }
-
-  Future<void> updateAnnotationPosition(PointAnnotation annotation, Point newPoint) async {
-    try {
-      // Retrieve current icon image directly from the annotation
-      String currentIcon = annotation.iconImage ?? "mapbox-check";
-      
-      await _annotationManager.delete(annotation);
-      final annotationOptions = PointAnnotationOptions(
-        geometry: newPoint,
-        iconSize: 1.0,
-        iconImage: currentIcon,
-      );
-      final newAnnotation = await _annotationManager.create(annotationOptions);
-     
-      // Update our local list
-      final index = _annotations.indexOf(annotation);
-      if (index != -1) {
-        _annotations[index] = newAnnotation;
-      }
-     
-      logger.i('Updated annotation position to: ${newPoint.coordinates.lat}, ${newPoint.coordinates.lng}');
-    } catch (e) {
-      logger.e('Error updating annotation position: $e');
       throw e;
     }
   }
@@ -96,7 +69,6 @@ class MapAnnotationsManager {
       logger.i('Found nearest annotation at distance: $minDistance');
     }
    
-    // Only return if we're within a reasonable distance
     return minDistance < 2.0 ? nearest : null;
   }
 
