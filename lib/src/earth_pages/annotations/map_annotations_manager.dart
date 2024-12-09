@@ -6,18 +6,20 @@ class MapAnnotationsManager {
   final List<PointAnnotation> _annotations = [];
  
   MapAnnotationsManager(this._annotationManager);
-  Future<PointAnnotation> addAnnotation(Point mapPoint) async {
-    logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng}');
+
+  Future<PointAnnotation> addAnnotation(Point mapPoint, {String iconImage = "mapbox-check"}) async {
+    logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng} with icon: $iconImage');
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
       iconSize: 1.0,
-      iconImage: "mapbox-check",
+      iconImage: iconImage,
     );
     final annotation = await _annotationManager.create(annotationOptions);
     _annotations.add(annotation);
     logger.i('Added annotation, total count: ${_annotations.length}');
     return annotation;
   }
+
   Future<void> removeAnnotation(PointAnnotation annotation) async {
     logger.i('Attempting to remove annotation');
     try {
@@ -33,6 +35,7 @@ class MapAnnotationsManager {
       throw e;
     }
   }
+
   Future<void> updateVisualPosition(PointAnnotation annotation, Point newPoint) async {
     try {
       // Update only the visual position by modifying the existing annotation
@@ -45,14 +48,17 @@ class MapAnnotationsManager {
       throw e;
     }
   }
+
   Future<void> updateAnnotationPosition(PointAnnotation annotation, Point newPoint) async {
     try {
-      // Create a new annotation with updated position
+      // Retrieve current icon image directly from the annotation
+      String currentIcon = annotation.iconImage ?? "mapbox-check";
+      
       await _annotationManager.delete(annotation);
       final annotationOptions = PointAnnotationOptions(
         geometry: newPoint,
         iconSize: 1.0,
-        iconImage: "mapbox-check",
+        iconImage: currentIcon,
       );
       final newAnnotation = await _annotationManager.create(annotationOptions);
      
@@ -68,6 +74,7 @@ class MapAnnotationsManager {
       throw e;
     }
   }
+
   Future<PointAnnotation?> findNearestAnnotation(Point tapPoint) async {
     if (_annotations.isEmpty) {
       logger.i('No annotations to search through');
@@ -92,11 +99,13 @@ class MapAnnotationsManager {
     // Only return if we're within a reasonable distance
     return minDistance < 2.0 ? nearest : null;
   }
+
   double _calculateDistance(Point p1, Point p2) {
     double latDiff = (p1.coordinates.lat.toDouble() - p2.coordinates.lat.toDouble()).abs();
     double lngDiff = (p1.coordinates.lng.toDouble() - p2.coordinates.lng.toDouble()).abs();
     return latDiff + lngDiff;
   }
+
   String get annotationLayerId => _annotationManager.id;
   bool get hasAnnotations => _annotations.isNotEmpty;
   List<PointAnnotation> get annotations => List.unmodifiable(_annotations);

@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 
-Future<IconData?> showIconSelectionDialog(BuildContext context) async {
-  // A small set of icons to choose from
+Future<String?> showIconSelectionDialog(BuildContext context) async {
+  // The icons you have: cross.png, cinema.png, cricket.png
   final icons = [
-    Icons.star,
-    Icons.flag,
-    Icons.home,
-    Icons.camera,
-    Icons.map,
-    Icons.favorite,
+    "cross",
+    "cinema",
+    "cricket",
   ];
 
-  return showDialog<IconData>(
+  return showDialog<String>(
     context: context,
     builder: (iconDialogContext) {
       return AlertDialog(
@@ -21,16 +18,22 @@ Future<IconData?> showIconSelectionDialog(BuildContext context) async {
           child: Wrap(
             spacing: 16,
             runSpacing: 16,
-            children: icons.map((icon) {
+            children: icons.map((iconName) {
               return GestureDetector(
                 onTap: () {
-                  // When tapped, return this icon
-                  Navigator.of(iconDialogContext).pop(icon);
+                  // When tapped, return this icon name
+                  Navigator.of(iconDialogContext).pop(iconName);
                 },
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, size: 32),
+                    Image.asset(
+                      'assets/icons/$iconName.png',
+                      width: 32,
+                      height: 32,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(iconName, style: const TextStyle(fontSize: 12)),
                   ],
                 ),
               );

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data'; // for Uint8List
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // for rootBundle
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/annotations/map_annotations_manager.dart';
@@ -7,6 +9,7 @@ import 'package:map_mvp_project/src/earth_pages/dialogs/map_icon_selection_dialo
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_initialization_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/trash_can_handler.dart';
+import 'package:geojson/geojson.dart'; // if needed for Point
 
 class MapGestureHandler {
   final MapboxMap mapboxMap;
@@ -208,14 +211,14 @@ class MapGestureHandler {
         logger.i('Initial form dialog returned: $initialData');
         if (initialData != null) {
           _chosenTitle = initialData['title'] as String;
-          final chosenIconName = initialData['icon'] as String; // icon is a string now
+          _chosenIconName = initialData['icon'] as String; // updated to store chosen icon name
           _chosenDate = initialData['date'] as String;
 
-          logger.i('Got title=$_chosenTitle, icon=$chosenIconName, date=$_chosenDate from initial dialog. Showing annotation form dialog next.');
+          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, date=$_chosenDate from initial dialog. Showing annotation form dialog next.');
           final result = await showAnnotationFormDialog(
             context,
             title: _chosenTitle!,
-            chosenIcon: Icons.star, // Using material icon as a placeholder in form dialog
+            chosenIcon: Icons.star, // placeholder icon for the form UI only
             date: _chosenDate!,
           );
           logger.i('Annotation form dialog returned: $result');
@@ -226,8 +229,17 @@ class MapGestureHandler {
             if (_longPressPoint != null) {
               logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
               final text = "$_chosenTitle\n$_chosenDate";
-              // Just use chosenIconName as iconImage. Make sure you add it to the style if needed.
-              await annotationsManager.addAnnotation(_longPressPoint!);
+
+              // Load the PNG image as bytes and add it to the style
+              final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
+              final imageBytes = bytes.buffer.asUint8List();
+              await mapboxMap.style.addImage(_chosenIconName, imageBytes);
+
+              // Now add the annotation with the chosen icon
+              await annotationsManager.addAnnotation(
+                _longPressPoint!,
+                iconImage: _chosenIconName,
+              );
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
             } else {

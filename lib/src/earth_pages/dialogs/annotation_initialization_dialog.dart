@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // For SvgPicture
 import 'package:map_mvp_project/services/error_handler.dart';
 
 Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext context) async {
@@ -7,7 +6,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
   final titleController = TextEditingController();
   final dateController = TextEditingController();
 
-  // Default to "cross" icon
+  // Default to "cross" icon (now a PNG)
   String chosenIconName = "cross";
 
   return showDialog<Map<String, dynamic>?>(
@@ -17,8 +16,8 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
       final screenWidth = MediaQuery.of(dialogContext).size.width;
       return StatefulBuilder(
         builder: (context, setState) {
-          Widget currentIconWidget = SvgPicture.asset(
-            'assets/icons/$chosenIconName.svg',
+          Widget currentIconWidget = Image.asset(
+            'assets/icons/$chosenIconName.png',
             width: 32,
             height: 32,
           );
@@ -112,7 +111,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
                   logger.i('Continue pressed in initial form dialog.');
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
-                    'icon': chosenIconName, // now a string name from svg
+                    'icon': chosenIconName, // now a string name from png
                     'date': dateController.text.trim(),
                   });
                 },
@@ -125,7 +124,6 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
   );
 }
 
-// Shows a dialog with cricket.svg and cinema.svg as options
 Future<String?> _showMapboxIconSelectionDialog(BuildContext dialogContext) async {
   final mapboxIcons = [
     "cricket",
@@ -150,8 +148,8 @@ Future<String?> _showMapboxIconSelectionDialog(BuildContext dialogContext) async
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SvgPicture.asset(
-                      'assets/icons/$iconName.svg',
+                    Image.asset(
+                      'assets/icons/$iconName.png',
                       width: 32,
                       height: 32,
                     ),
