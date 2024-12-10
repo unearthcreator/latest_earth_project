@@ -1,3 +1,4 @@
+import 'dart:io'; // For Image.file
 import 'package:flutter/material.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:image_picker/image_picker.dart';
@@ -27,6 +28,7 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Row with icon (left), title (center, bigger), date (right)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -68,8 +70,16 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                     ),
                     if (selectedImagePath != null) ...[
                       const SizedBox(height: 8),
+                      // Display the selected image in a small preview
+                      Image.file(
+                        File(selectedImagePath!),
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                      ),
+                      const SizedBox(height: 8),
                       Text('Selected image path: $selectedImagePath', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    ]
+                    ],
                   ],
                 ),
               ),

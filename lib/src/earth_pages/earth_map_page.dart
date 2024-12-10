@@ -5,6 +5,7 @@ import 'package:map_mvp_project/src/earth_pages/annotations/map_annotations_mana
 import 'package:map_mvp_project/src/earth_pages/gestures/map_gesture_handler.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/repositories/local_annotations_repository.dart'; // Import the local repo
+import 'package:hive/hive.dart'; // For deleteBoxFromDisk if needed
 
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
@@ -17,6 +18,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   late MapboxMap _mapboxMap;
   late MapAnnotationsManager _annotationsManager;
   late MapGestureHandler _gestureHandler;
+  late LocalAnnotationsRepository _localRepo; // Store the repo
 
   bool _isMapReady = false;
   bool _isError = false;
@@ -44,14 +46,14 @@ class EarthMapPageState extends State<EarthMapPage> {
 
       _annotationsManager = MapAnnotationsManager(annotationManager);
 
-      // Create an instance of LocalAnnotationsRepository
-      final localRepo = LocalAnnotationsRepository();
+      // Create and store LocalAnnotationsRepository instance
+      _localRepo = LocalAnnotationsRepository();
 
       _gestureHandler = MapGestureHandler(
         mapboxMap: mapboxMap,
         annotationsManager: _annotationsManager,
         context: context,
-        localAnnotationsRepository: localRepo, // Pass the repository here
+        localAnnotationsRepository: _localRepo,
       );
 
       logger.i('Map initialization completed successfully');
@@ -106,7 +108,6 @@ class EarthMapPageState extends State<EarthMapPage> {
   void _handleLongPressEnd(LongPressEndDetails details) {
     try {
       logger.i('Long press ended');
-      // Only call endDrag() here, do not call cancelTimer()
       _gestureHandler.endDrag();
     } catch (e, stackTrace) {
       logger.e('Error handling long press end',
@@ -157,7 +158,6 @@ class EarthMapPageState extends State<EarthMapPage> {
       onLongPressEnd: _handleLongPressEnd,
       onLongPressCancel: () {
         logger.i('Long press cancelled');
-        // Only call endDrag() here, do not call cancelTimer()
         _gestureHandler.endDrag();
       },
       child: MapWidget(
@@ -181,6 +181,24 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
+  Widget _buildClearButton() {
+    return Positioned(
+      top: 40,
+      right: 10,
+      child: ElevatedButton(
+        onPressed: () async {
+          logger.i('Clear button pressed - clearing all annotations from Hive.');
+          // Clear all annotations from Hive
+          final box = await Hive.openBox<Map>('annotationsBox');
+          await box.clear();
+          await box.close();
+          logger.i('Annotations cleared. Restart app or add new annotations.');
+        },
+        child: const Text('Clear'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,6 +208,7 @@ class EarthMapPageState extends State<EarthMapPage> {
             children: [
               _buildMapWidget(),
               if (_isMapReady) _buildBackButton(),
+              if (_isMapReady) _buildClearButton(),
             ],
           ),
     );
