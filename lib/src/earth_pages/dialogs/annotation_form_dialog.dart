@@ -2,6 +2,7 @@ import 'dart:io'; // For Image.file and File operations
 import 'package:flutter/material.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart'; // for picking files
 import 'package:path_provider/path_provider.dart'; // for getApplicationDocumentsDirectory
 import 'package:path/path.dart' as p; // for path operations
 
@@ -13,7 +14,9 @@ Future<Map<String, String>?> showAnnotationFormDialog(
 }) async {
   logger.i('Showing annotation form dialog (icon, title, date, note).');
   final noteController = TextEditingController();
+
   String? selectedImagePath;
+  String? selectedFilePath; // For the chosen file (PDF, DOC, etc.)
 
   return showDialog<Map<String, String>?>(
     context: context,
@@ -55,34 +58,48 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                       maxLines: 4,
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final picker = ImagePicker();
-                        final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
-                        if (pickedFile != null) {
-                          // Copy the image into the app's internal storage
-                          final appDir = await getApplicationDocumentsDirectory();
-                          final imagesDir = Directory(p.join(appDir.path, 'images'));
+                    // Buttons for image and camera
+                    Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () async {
+                            final picker = ImagePicker();
+                            final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                            if (pickedFile != null) {
+                              // Copy the image into the app's internal storage
+                              final appDir = await getApplicationDocumentsDirectory();
+                              final imagesDir = Directory(p.join(appDir.path, 'images'));
 
-                          if (!await imagesDir.exists()) {
-                            await imagesDir.create(recursive: true);
-                          }
+                              if (!await imagesDir.exists()) {
+                                await imagesDir.create(recursive: true);
+                              }
 
-                          final fileName = p.basename(pickedFile.path);
-                          final newPath = p.join(imagesDir.path, fileName);
+                              final fileName = p.basename(pickedFile.path);
+                              final newPath = p.join(imagesDir.path, fileName);
 
-                          await File(pickedFile.path).copy(newPath);
+                              await File(pickedFile.path).copy(newPath);
 
-                          setState(() {
-                            selectedImagePath = newPath; // Use the internal copy now
-                          });
+                              setState(() {
+                                selectedImagePath = newPath; // Use the internal copy now
+                              });
 
-                          logger.i('User selected and copied image to: $selectedImagePath');
-                        } else {
-                          logger.i('User cancelled image selection.');
-                        }
-                      },
-                      child: const Text('Add Image'),
+                              logger.i('User selected and copied image to: $selectedImagePath');
+                            } else {
+                              logger.i('User cancelled image selection.');
+                            }
+                          },
+                          child: const Text('Add Image'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            logger.i('Camera button clicked');
+                            // Future implementation:
+                            // Navigate to custom camera screen or integrate camera plugin here
+                          },
+                          child: const Text('Open Camera'),
+                        ),
+                      ],
                     ),
                     if (selectedImagePath != null) ...[
                       const SizedBox(height: 8),
@@ -94,6 +111,44 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                       ),
                       const SizedBox(height: 8),
                       Text('Selected image path: $selectedImagePath', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    ],
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () async {
+                        // Pick a file (PDF, DOC, etc.)
+                        final result = await FilePicker.platform.pickFiles();
+                        if (result != null && result.files.isNotEmpty) {
+                          final pickedFilePath = result.files.single.path;
+                          if (pickedFilePath != null) {
+                            final appDir = await getApplicationDocumentsDirectory();
+                            final filesDir = Directory(p.join(appDir.path, 'files'));
+
+                            if (!await filesDir.exists()) {
+                              await filesDir.create(recursive: true);
+                            }
+
+                            final fileName = p.basename(pickedFilePath);
+                            final newPath = p.join(filesDir.path, fileName);
+
+                            await File(pickedFilePath).copy(newPath);
+
+                            setState(() {
+                              selectedFilePath = newPath;
+                            });
+
+                            logger.i('User selected and copied file to: $selectedFilePath');
+                          } else {
+                            logger.i('User cancelled file selection after initial pick.');
+                          }
+                        } else {
+                          logger.i('User cancelled file selection.');
+                        }
+                      },
+                      child: const Text('Add File'),
+                    ),
+                    if (selectedFilePath != null) ...[
+                      const SizedBox(height: 8),
+                      Text('Selected file path: $selectedFilePath', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ],
                 ),
@@ -111,10 +166,11 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                 child: const Text('Save'),
                 onPressed: () {
                   final note = noteController.text.trim();
-                  logger.i('User pressed save in annotation form dialog, note=$note, imagePath=$selectedImagePath.');
+                  logger.i('User pressed save in annotation form dialog, note=$note, imagePath=$selectedImagePath, filePath=$selectedFilePath.');
                   Navigator.of(dialogContext).pop({
                     'note': note,
                     'imagePath': selectedImagePath ?? '',
+                    'filePath': selectedFilePath ?? '',
                   });
                 },
               ),
