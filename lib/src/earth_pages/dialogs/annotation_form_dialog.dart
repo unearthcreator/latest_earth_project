@@ -46,6 +46,15 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                   ),
                   maxLines: 4,
                 ),
+                const SizedBox(height: 16),
+                // Add Image button (currently no functionality)
+                ElevatedButton(
+                  onPressed: () {
+                    // For now, no action. Just a placeholder.
+                    logger.i('Add Image button pressed (no functionality yet).');
+                  },
+                  child: const Text('Add Image'),
+                ),
               ],
             ),
           ),
