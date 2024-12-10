@@ -1,7 +1,9 @@
-import 'dart:io'; // For Image.file
+import 'dart:io'; // For Image.file and File operations
 import 'package:flutter/material.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart'; // for getApplicationDocumentsDirectory
+import 'package:path/path.dart' as p; // for path operations
 
 Future<Map<String, String>?> showAnnotationFormDialog(
   BuildContext context, {
@@ -58,10 +60,24 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                         final picker = ImagePicker();
                         final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
                         if (pickedFile != null) {
+                          // Copy the image into the app's internal storage
+                          final appDir = await getApplicationDocumentsDirectory();
+                          final imagesDir = Directory(p.join(appDir.path, 'images'));
+
+                          if (!await imagesDir.exists()) {
+                            await imagesDir.create(recursive: true);
+                          }
+
+                          final fileName = p.basename(pickedFile.path);
+                          final newPath = p.join(imagesDir.path, fileName);
+
+                          await File(pickedFile.path).copy(newPath);
+
                           setState(() {
-                            selectedImagePath = pickedFile.path;
+                            selectedImagePath = newPath; // Use the internal copy now
                           });
-                          logger.i('User selected image: $selectedImagePath');
+
+                          logger.i('User selected and copied image to: $selectedImagePath');
                         } else {
                           logger.i('User cancelled image selection.');
                         }
@@ -70,7 +86,6 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                     ),
                     if (selectedImagePath != null) ...[
                       const SizedBox(height: 8),
-                      // Display the selected image in a small preview
                       Image.file(
                         File(selectedImagePath!),
                         width: 100,

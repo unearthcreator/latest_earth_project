@@ -18,14 +18,10 @@ Future<void> showAnnotationDetailsDialog(BuildContext context, Annotation annota
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Row with icon (if you have one), title, date
-                // For now, if we have iconName, we might not be able to show the custom icon easily.
-                // Assume we just show title and date similarly as before.
+                // Row with title and date
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // If you have a way to show the chosenIcon as before, you can add it here.
-                    // For now, assume just title and date.
                     Text(
                       annotation.title,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
@@ -51,6 +47,11 @@ Future<void> showAnnotationDetailsDialog(BuildContext context, Annotation annota
                     width: 200,
                     height: 200,
                     fit: BoxFit.cover,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Image path: ${annotation.imagePath!}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
               ],
