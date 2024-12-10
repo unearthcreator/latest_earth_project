@@ -6,6 +6,7 @@ class Annotation {
   final String note;
   final double latitude;
   final double longitude;
+  final String? imagePath; // Add this field
 
   Annotation({
     required this.id,
@@ -15,6 +16,7 @@ class Annotation {
     required this.note,
     required this.latitude,
     required this.longitude,
+    this.imagePath, // optional for now
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +28,7 @@ class Annotation {
       'note': note,
       'latitude': latitude,
       'longitude': longitude,
+      'imagePath': imagePath, // include imagePath in JSON
     };
   }
 
@@ -38,11 +41,12 @@ class Annotation {
       note: json['note'] as String,
       latitude: json['latitude'] as double,
       longitude: json['longitude'] as double,
+      imagePath: json['imagePath'] as String?, // read imagePath from JSON
     );
   }
 
   @override
   String toString() {
-    return 'Annotation(id: $id, title: $title, iconName: $iconName, date: $date, note: $note, latitude: $latitude, longitude: $longitude)';
+    return 'Annotation(id: $id, title: $title, iconName: $iconName, date: $date, note: $note, latitude: $latitude, longitude: $longitude, imagePath: $imagePath)';
   }
 }

@@ -262,7 +262,8 @@ class MapGestureHandler {
           logger.i('Annotation form dialog returned: $result');
           if (result != null) {
             final note = result['note'] ?? '';
-            logger.i('User entered note: $note');
+            final imagePath = result['imagePath']; // Get the image path if returned
+            logger.i('User entered note: $note, imagePath: $imagePath');
 
             if (_longPressPoint != null) {
               logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
@@ -289,6 +290,7 @@ class MapGestureHandler {
                 note: note,
                 latitude: latitude,
                 longitude: longitude,
+                imagePath: imagePath, // Pass the image path here
               );
 
               await localAnnotationsRepository.addAnnotation(annotation);
