@@ -21,20 +21,22 @@ class MapAnnotationsManager {
     // If there's a title, we'll show it above the icon
     final hasTitle = title != null && title.isNotEmpty;
     
+    // ARGB integer colors: 0xAARRGGBB format
+    // White: 0xFFFFFFFF
+    // Black: 0xFF000000
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
       iconSize: 5.0,
-      image: image, // Assign the raw image bytes if provided
+      image: image, 
       textField: hasTitle ? title : null,
-      textSize: hasTitle ? 14.0 : null, // adjust as needed
+      textSize: hasTitle ? 14.0 : null,
       textAnchor: hasTitle ? TextAnchor.BOTTOM : null,
       iconAnchor: IconAnchor.BOTTOM,
-      textOffset: hasTitle ? [0, -2.0] : null, // move text further above the icon
-      textColor: hasTitle ? "#FFFFFF" : null, // white text
-      textFont: hasTitle ? ["Open Sans Semibold", "Arial Unicode MS Bold"] : null, // attempt bold style
-      textHaloColor: hasTitle ? "#000000" : null, // black halo for contrast
-      textHaloWidth: hasTitle ? 1.0 : null, // halo width
-      textHaloBlur: hasTitle ? 0.5 : null, // slight blur for halo
+      textOffset: hasTitle ? [0, -2.0] : null, // Move text further above the icon
+      textColor: hasTitle ? 0xFFFFFFFF : null,   // White text
+      textHaloColor: hasTitle ? 0xFF000000 : null, // Black halo for contrast
+      textHaloWidth: hasTitle ? 1.0 : null,
+      textHaloBlur: hasTitle ? 0.5 : null,
     );
 
     final annotation = await _annotationManager.create(annotationOptions);
