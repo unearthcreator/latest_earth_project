@@ -22,42 +22,40 @@ class MapAnnotationsManager {
     final hasTitle = title != null && title.isNotEmpty;
     final hasDate = date != null && date.isNotEmpty;
 
-    logger.i('hasTitle=$hasTitle, hasDate=$hasDate, title=$title, date=$date');
-
-    // Combine into one line
     String? displayText;
     if (hasTitle && hasDate) {
-      displayText = "$title - $date";
-      logger.i('displayText set to "$displayText" (both title and date)');
+      // Two lines: title then date
+      displayText = "$title\n$date";
     } else if (hasTitle) {
       displayText = title;
-      logger.i('displayText set to "$displayText" (only title)');
     } else if (hasDate) {
       displayText = date;
-      logger.i('displayText set to "$displayText" (only date)');
     } else {
       displayText = null;
-      logger.i('displayText set to null (no title or date)');
     }
 
-    // If we have displayText, place it above the icon
-    // We'll use textAnchor = BOTTOM so the text appears above (with negative offset)
-    logger.i('Creating annotationOptions with displayText="$displayText"');
+    // textAnchor: BOTTOM means the bottom of the text lines will sit above the anchor point.
+    // With two lines, the icon will be at the bottom, text above icon:
+    // We'll use a negative offset to lift the text above the icon.
+    // If adjustments are needed, tweak the offset or textLineHeight.
+    
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
       iconSize: 5.0,
       image: image,
       textField: displayText,
-      textSize: (displayText != null) ? 14.0 : null,
+      textSize: (displayText != null) ? 18.0 : null,
       textAnchor: (displayText != null) ? TextAnchor.BOTTOM : null,
       iconAnchor: IconAnchor.BOTTOM,
-      textOffset: (displayText != null) ? [0, -2.5] : null,
+      textOffset: (displayText != null) ? [0, -2.1] : null,
+      textLineHeight: (hasTitle && hasDate) ? 1.2 : null,
       textColor: (displayText != null) ? 0xFFFFFFFF : null,   // White text
       textHaloColor: (displayText != null) ? 0xFF000000 : null, // Black halo
       textHaloWidth: (displayText != null) ? 1.0 : null,
       textHaloBlur: (displayText != null) ? 0.5 : null,
     );
 
+    logger.i('title=$title, date=$date, displayText="$displayText"');
     final annotation = await _annotationManager.create(annotationOptions);
     _annotations.add(annotation);
     logger.i('Added annotation, total count: ${_annotations.length}');
