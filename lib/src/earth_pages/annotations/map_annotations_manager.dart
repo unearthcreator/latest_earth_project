@@ -1,6 +1,6 @@
+import 'dart:typed_data';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
-import 'dart:typed_data';
 
 class MapAnnotationsManager {
   final PointAnnotationManager _annotationManager;
@@ -11,13 +11,32 @@ class MapAnnotationsManager {
   // Add a getter to access the underlying annotation manager
   PointAnnotationManager get pointAnnotationManager => _annotationManager;
 
-  Future<PointAnnotation> addAnnotation(Point mapPoint, {Uint8List? image}) async {
+  Future<PointAnnotation> addAnnotation(
+    Point mapPoint, {
+    Uint8List? image,
+    String? title,
+  }) async {
     logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng}');
+    
+    // If there's a title, we'll show it above the icon
+    final hasTitle = title != null && title.isNotEmpty;
+    
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
       iconSize: 5.0,
-      image: image, // Assign the raw image bytes here if provided
+      image: image, // Assign the raw image bytes if provided
+      textField: hasTitle ? title : null,
+      textSize: hasTitle ? 14.0 : null, // adjust as needed
+      textAnchor: hasTitle ? TextAnchor.BOTTOM : null,
+      iconAnchor: IconAnchor.BOTTOM,
+      textOffset: hasTitle ? [0, -2.0] : null, // move text further above the icon
+      textColor: hasTitle ? "#FFFFFF" : null, // white text
+      textFont: hasTitle ? ["Open Sans Semibold", "Arial Unicode MS Bold"] : null, // attempt bold style
+      textHaloColor: hasTitle ? "#000000" : null, // black halo for contrast
+      textHaloWidth: hasTitle ? 1.0 : null, // halo width
+      textHaloBlur: hasTitle ? 0.5 : null, // slight blur for halo
     );
+
     final annotation = await _annotationManager.create(annotationOptions);
     _annotations.add(annotation);
     logger.i('Added annotation, total count: ${_annotations.length}');

@@ -262,8 +262,9 @@ class MapGestureHandler {
           logger.i('Annotation form dialog returned: $result');
           if (result != null) {
             final note = result['note'] ?? '';
-            final imagePath = result['imagePath']; // Get the image path if returned
-            logger.i('User entered note: $note, imagePath: $imagePath');
+            final imagePath = result['imagePath'];
+            final filePath = result['filePath'];
+            logger.i('User entered note: $note, imagePath: $imagePath, filePath: $filePath');
 
             if (_longPressPoint != null) {
               logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
@@ -271,9 +272,11 @@ class MapGestureHandler {
               final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
               final imageData = bytes.buffer.asUint8List();
 
+              // Pass the title to addAnnotation so the text is displayed above the icon
               final mapAnnotation = await annotationsManager.addAnnotation(
                 _longPressPoint!,
                 image: imageData,
+                title: _chosenTitle!, // Pass the chosen title here
               );
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
@@ -290,7 +293,7 @@ class MapGestureHandler {
                 note: note,
                 latitude: latitude,
                 longitude: longitude,
-                imagePath: imagePath, // Pass the image path here
+                imagePath: imagePath,
               );
 
               await localAnnotationsRepository.addAnnotation(annotation);
