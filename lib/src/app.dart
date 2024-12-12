@@ -1,32 +1,48 @@
-// app.dart
 import 'package:flutter/material.dart';
-import 'package:map_mvp_project/src/starting_pages/main_menu/main_menu.dart'; // Import MainMenuPage as initial screen
-import 'package:map_mvp_project/src/starting_pages/world_selector/world_selector.dart'; // Import WorldSelectorPage
-import 'package:map_mvp_project/services/error_handler.dart'; // Import logger for error handling
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:map_mvp_project/src/starting_pages/main_menu/main_menu.dart';
+import 'package:map_mvp_project/src/starting_pages/world_selector/world_selector.dart';
+import 'package:map_mvp_project/services/error_handler.dart';
+import 'package:map_mvp_project/l10n/app_localizations.dart';
+import 'package:map_mvp_project/providers/locale_provider.dart'; // import the localeProvider
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     try {
+      final currentLocale = ref.watch(localeProvider);
+
       return MaterialApp(
         title: 'Map MVP Project',
-        theme: _buildAppTheme(), // Extracted theme to a separate function for cleaner code
-        initialRoute: '/', // Define the initial route (MainMenuPage)
+        theme: _buildAppTheme(),
+        initialRoute: '/',
         routes: {
-          '/': (context) => const MainMenuPage(), // Set MainMenuPage as initial route
-          '/world_selector': (context) => const WorldSelectorPage(), // Define route for WorldSelectorPage
+          '/': (context) => const MainMenuPage(),
+          '/world_selector': (context) => const WorldSelectorPage(),
         },
-        debugShowCheckedModeBanner: false, // Removes the Debug banner
+        debugShowCheckedModeBanner: false,
+
+        locale: currentLocale, // Read the chosen locale from the provider
+        localizationsDelegates: const [
+          AppLocalizations.delegate, // Add the generated delegate
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('en'),
+          Locale('sv'),
+        ],
       );
     } catch (e, stackTrace) {
       logger.e('Error while building MyApp widget', error: e, stackTrace: stackTrace);
-      return const SizedBox(); // Return an empty widget if an error occurs
+      return const SizedBox();
     }
   }
 
-  // Function to build and manage the app theme
   ThemeData _buildAppTheme() {
     return ThemeData(
       primarySwatch: Colors.blue,
