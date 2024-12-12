@@ -277,6 +277,7 @@ class MapGestureHandler {
                 _longPressPoint!,
                 image: imageData,
                 title: _chosenTitle!, // Pass the chosen title here
+                date: _chosenDate!
               );
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');

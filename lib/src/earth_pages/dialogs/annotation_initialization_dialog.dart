@@ -109,6 +109,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
                 child: const Text('Continue'),
                 onPressed: () {
                   logger.i('Continue pressed in initial form dialog.');
+                  logger.i('Returning title=${titleController.text.trim()}, icon=$chosenIconName, date=${dateController.text.trim()}');
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName, // now a string name from png

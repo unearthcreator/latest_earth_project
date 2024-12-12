@@ -15,28 +15,47 @@ class MapAnnotationsManager {
     Point mapPoint, {
     Uint8List? image,
     String? title,
+    String? date,
   }) async {
     logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng}');
     
-    // If there's a title, we'll show it above the icon
     final hasTitle = title != null && title.isNotEmpty;
-    
-    // ARGB integer colors: 0xAARRGGBB format
-    // White: 0xFFFFFFFF
-    // Black: 0xFF000000
+    final hasDate = date != null && date.isNotEmpty;
+
+    logger.i('hasTitle=$hasTitle, hasDate=$hasDate, title=$title, date=$date');
+
+    // Combine into one line
+    String? displayText;
+    if (hasTitle && hasDate) {
+      displayText = "$title - $date";
+      logger.i('displayText set to "$displayText" (both title and date)');
+    } else if (hasTitle) {
+      displayText = title;
+      logger.i('displayText set to "$displayText" (only title)');
+    } else if (hasDate) {
+      displayText = date;
+      logger.i('displayText set to "$displayText" (only date)');
+    } else {
+      displayText = null;
+      logger.i('displayText set to null (no title or date)');
+    }
+
+    // If we have displayText, place it above the icon
+    // We'll use textAnchor = BOTTOM so the text appears above (with negative offset)
+    logger.i('Creating annotationOptions with displayText="$displayText"');
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
       iconSize: 5.0,
-      image: image, 
-      textField: hasTitle ? title : null,
-      textSize: hasTitle ? 14.0 : null,
-      textAnchor: hasTitle ? TextAnchor.BOTTOM : null,
+      image: image,
+      textField: displayText,
+      textSize: (displayText != null) ? 14.0 : null,
+      textAnchor: (displayText != null) ? TextAnchor.BOTTOM : null,
       iconAnchor: IconAnchor.BOTTOM,
-      textOffset: hasTitle ? [0, -2.0] : null, // Move text further above the icon
-      textColor: hasTitle ? 0xFFFFFFFF : null,   // White text
-      textHaloColor: hasTitle ? 0xFF000000 : null, // Black halo for contrast
-      textHaloWidth: hasTitle ? 1.0 : null,
-      textHaloBlur: hasTitle ? 0.5 : null,
+      textOffset: (displayText != null) ? [0, -2.5] : null,
+      textColor: (displayText != null) ? 0xFFFFFFFF : null,   // White text
+      textHaloColor: (displayText != null) ? 0xFF000000 : null, // Black halo
+      textHaloWidth: (displayText != null) ? 1.0 : null,
+      textHaloBlur: (displayText != null) ? 0.5 : null,
     );
 
     final annotation = await _annotationManager.create(annotationOptions);
