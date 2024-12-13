@@ -3,45 +3,33 @@ import 'package:http/http.dart' as http;
 import 'package:map_mvp_project/services/error_handler.dart';
 
 class GeocodingService {
-  final String accessToken;
+  static const String accessToken = "pk.eyJ1IjoidW5lYXJ0aGNyZWF0b3IiLCJhIjoiY20yam4yODlrMDVwbzJrcjE5cW9vcDJmbiJ9.L2tmRAkt0jKLd8-fWaMWfA"; // Replace with your actual token
 
-  GeocodingService({required this.accessToken});
-
-  Future<Map<String, dynamic>?> fetchCoordinatesFromAddress(String address) async {
-    // Encode the address to be used in a URL
-    final encodedAddress = Uri.encodeComponent(address);
-
-    // This is an example using Mapbox Geocoding API:
-    // See: https://docs.mapbox.com/api/search/geocoding/
-    // endpoint: https://api.mapbox.com/geocoding/v5/mapbox.places/{query}.json
-    final url = Uri.parse('https://api.mapbox.com/geocoding/v5/mapbox.places/$encodedAddress.json?access_token=$accessToken&limit=1');
-
-    logger.i('Geocoding request: $url');
+  static Future<Map<String, dynamic>?> fetchCoordinatesFromAddress(String address) async {
+    final url = Uri.parse(
+      'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(address)}.json'
+      '?access_token=$accessToken'
+    );
 
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
-      final jsonData = jsonDecode(response.body);
-      logger.i('Geocoding response: $jsonData');
+      final data = jsonDecode(response.body);
+      logger.i('Geocoding response: $data');
 
-      // Extract coordinates if available
-      if (jsonData['features'] != null && jsonData['features'].isNotEmpty) {
-        final feature = jsonData['features'][0];
-        if (feature['center'] != null && feature['center'].length == 2) {
-          final double lng = feature['center'][0];
-          final double lat = feature['center'][1];
-          logger.i('Coordinates found: lat=$lat, lng=$lng');
-          return {'lat': lat, 'lng': lng};
-        } else {
-          logger.w('No coordinates found in the feature');
-          return null;
-        }
+      if (data['features'] != null && data['features'].isNotEmpty) {
+        final feature = data['features'][0];
+        final center = feature['center']; // [lng, lat]
+        final lng = center[0];
+        final lat = center[1];
+        logger.i('Coordinates found: lat=$lat, lng=$lng');
+        return {'lat': lat, 'lng': lng};
       } else {
-        logger.w('No features returned for the given address');
+        logger.w('No features found for given address.');
         return null;
       }
     } else {
-      logger.e('Geocoding failed with status: ${response.statusCode}, body: ${response.body}');
+      logger.e('Failed to fetch geocoding data: ${response.statusCode}');
       return null;
     }
   }

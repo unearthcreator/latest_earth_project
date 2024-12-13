@@ -10,6 +10,8 @@ import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:map_mvp_project/services/geocoding_service.dart'; // Import geocoding service
+
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
 
@@ -26,6 +28,8 @@ class EarthMapPageState extends State<EarthMapPage> {
   bool _isMapReady = false;
   bool _isError = false;
   String _errorMessage = '';
+
+  final TextEditingController _addressController = TextEditingController();
 
   @override
   void initState() {
@@ -48,7 +52,6 @@ class EarthMapPageState extends State<EarthMapPage> {
       });
 
       _annotationsManager = MapAnnotationsManager(annotationManager);
-
       _localRepo = LocalAnnotationsRepository();
 
       _gestureHandler = MapGestureHandler(
@@ -123,6 +126,7 @@ class EarthMapPageState extends State<EarthMapPage> {
     try {
       logger.i('Disposing EarthMapPage');
       _gestureHandler.dispose();
+      _addressController.dispose();
       super.dispose();
     } catch (e, stackTrace) {
       logger.e('Error disposing EarthMapPage',
@@ -249,6 +253,66 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
+  Widget _buildAddressSearchWidget() {
+    return Positioned(
+      top: 200,
+      left: 10,
+      right: 10,
+      child: Container(
+        color: Colors.white.withOpacity(0.9),
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _addressController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter address',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () async {
+                final address = _addressController.text.trim();
+                if (address.isEmpty) {
+                  return;
+                }
+                final coords = await GeocodingService.fetchCoordinatesFromAddress(address);
+                if (coords != null) {
+                  logger.i('Coordinates received: $coords');
+                  final lat = coords['lat']!;
+                  final lng = coords['lng']!;
+
+                  // Create a geometry point
+                  final geometry = Point(coordinates: Position(lng, lat));
+
+                  // Add an annotation at this location
+                  await _annotationsManager.addAnnotation(geometry, title: "Searched Place", date: "");
+                  logger.i('Annotation placed at searched location.');
+
+                  // Move camera to this position
+                  _mapboxMap.setCamera(
+                    CameraOptions(
+                      center: geometry,
+                      zoom: 14.0,
+                    ),
+                  );
+                } else {
+                  logger.w('No coordinates found for the given address.');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No coordinates found for the given address.'))
+                  );
+                }
+              },
+              child: const Text('Search'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -261,6 +325,7 @@ class EarthMapPageState extends State<EarthMapPage> {
               if (_isMapReady) _buildClearAnnotationsButton(),
               if (_isMapReady) _buildClearImagesButton(),
               if (_isMapReady) _buildDeleteImagesFolderButton(),
+              if (_isMapReady) _buildAddressSearchWidget(),
             ],
           ),
     );
