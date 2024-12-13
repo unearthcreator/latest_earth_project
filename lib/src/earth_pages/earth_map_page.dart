@@ -30,6 +30,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   String _errorMessage = '';
 
   final TextEditingController _addressController = TextEditingController();
+  bool _showSearchBar = false; // Controls visibility of the search bar
 
   @override
   void initState() {
@@ -46,8 +47,7 @@ class EarthMapPageState extends State<EarthMapPage> {
           .createPointAnnotationManager()
           .onError((error, stackTrace) {
         logger.e('Failed to create annotation manager',
-          error: error,
-          stackTrace: stackTrace);
+            error: error, stackTrace: stackTrace);
         throw Exception('Failed to initialize map annotations');
       });
 
@@ -68,8 +68,7 @@ class EarthMapPageState extends State<EarthMapPage> {
       }
     } catch (e, stackTrace) {
       logger.e('Error during map initialization',
-        error: e,
-        stackTrace: stackTrace);
+          error: e, stackTrace: stackTrace);
       if (mounted) {
         setState(() {
           _isError = true;
@@ -89,8 +88,7 @@ class EarthMapPageState extends State<EarthMapPage> {
       _gestureHandler.handleLongPress(screenPoint);
     } catch (e, stackTrace) {
       logger.e('Error handling long press',
-        error: e,
-        stackTrace: stackTrace);
+          error: e, stackTrace: stackTrace);
     }
   }
 
@@ -105,8 +103,7 @@ class EarthMapPageState extends State<EarthMapPage> {
       }
     } catch (e, stackTrace) {
       logger.e('Error handling drag update',
-        error: e,
-        stackTrace: stackTrace);
+          error: e, stackTrace: stackTrace);
     }
   }
 
@@ -116,8 +113,7 @@ class EarthMapPageState extends State<EarthMapPage> {
       _gestureHandler.endDrag();
     } catch (e, stackTrace) {
       logger.e('Error handling long press end',
-        error: e,
-        stackTrace: stackTrace);
+          error: e, stackTrace: stackTrace);
     }
   }
 
@@ -130,8 +126,7 @@ class EarthMapPageState extends State<EarthMapPage> {
       super.dispose();
     } catch (e, stackTrace) {
       logger.e('Error disposing EarthMapPage',
-        error: e,
-        stackTrace: stackTrace);
+          error: e, stackTrace: stackTrace);
       super.dispose();
     }
   }
@@ -143,7 +138,8 @@ class EarthMapPageState extends State<EarthMapPage> {
         children: [
           const Icon(Icons.error_outline, color: Colors.red, size: 48),
           const SizedBox(height: 16),
-          Text(_errorMessage,
+          Text(
+            _errorMessage,
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.red),
           ),
@@ -187,6 +183,25 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
+  Widget _buildSearchToggleButton() {
+    return Positioned(
+      top: 40,
+      left: 60, // Slightly to the right of the Back button
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(8),
+        ),
+        onPressed: () {
+          setState(() {
+            _showSearchBar = !_showSearchBar;
+          });
+        },
+        child: const Icon(Icons.search),
+      ),
+    );
+  }
+
   Widget _buildClearAnnotationsButton() {
     return Positioned(
       top: 40,
@@ -213,7 +228,7 @@ class EarthMapPageState extends State<EarthMapPage> {
           logger.i('Clear images button pressed - clearing images folder files.');
           final appDir = await getApplicationDocumentsDirectory();
           final imagesDir = Directory(p.join(appDir.path, 'images'));
-          
+
           if (await imagesDir.exists()) {
             final files = imagesDir.listSync();
             for (var file in files) {
@@ -254,10 +269,12 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   Widget _buildAddressSearchWidget() {
+    if (!_showSearchBar) return const SizedBox.shrink();
+
     return Positioned(
       top: 200,
-      left: 10,
-      right: 10,
+      left: (MediaQuery.of(context).size.width - (MediaQuery.of(context).size.width * 0.5)) / 2,
+      width: MediaQuery.of(context).size.width * 0.5,
       child: Container(
         color: Colors.white.withOpacity(0.9),
         padding: const EdgeInsets.all(8),
@@ -288,7 +305,11 @@ class EarthMapPageState extends State<EarthMapPage> {
                   final geometry = Point(coordinates: Position(lng, lat));
 
                   // Add an annotation at this location
-                  await _annotationsManager.addAnnotation(geometry, title: "Searched Place", date: "");
+                  await _annotationsManager.addAnnotation(
+                    geometry,
+                    title: "Searched Place",
+                    date: "",
+                  );
                   logger.i('Annotation placed at searched location.');
 
                   // Move camera to this position
@@ -322,6 +343,7 @@ class EarthMapPageState extends State<EarthMapPage> {
             children: [
               _buildMapWidget(),
               if (_isMapReady) _buildBackButton(),
+              if (_isMapReady) _buildSearchToggleButton(), // The button to toggle search bar
               if (_isMapReady) _buildClearAnnotationsButton(),
               if (_isMapReady) _buildClearImagesButton(),
               if (_isMapReady) _buildDeleteImagesFolderButton(),
