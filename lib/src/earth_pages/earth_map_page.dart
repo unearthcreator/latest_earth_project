@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/services.dart'; // for rootBundle
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -325,9 +326,13 @@ class EarthMapPageState extends State<EarthMapPage> {
 
                       final geometry = Point(coordinates: Position(lng, lat));
 
-                      // Add annotation without custom image to use default icon
+                      // Load the cross icon from assets
+                      final bytes = await rootBundle.load('assets/icons/cross.png');
+                      final imageData = bytes.buffer.asUint8List();
+
                       await _annotationsManager.addAnnotation(
                         geometry,
+                        image: imageData,
                         title: streetPart,
                         date: "",
                       );

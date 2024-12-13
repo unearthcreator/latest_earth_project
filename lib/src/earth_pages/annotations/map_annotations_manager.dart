@@ -34,15 +34,15 @@ class MapAnnotationsManager {
       displayText = null;
     }
 
-    // textAnchor: BOTTOM means the bottom of the text lines will sit above the anchor point.
-    // With two lines, the icon will be at the bottom, text above icon:
-    // We'll use a negative offset to lift the text above the icon.
-    // If adjustments are needed, tweak the offset or textLineHeight.
-    
+    // If no custom image is provided, we use a default sprite icon from the style
+    // "marker-15" is a common sprite icon available in the default styles.
+    final iconImageName = (image == null) ? "marker-15" : null;
+
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
       iconSize: 5.0,
       image: image,
+      iconImage: iconImageName, // Use default sprite if no custom image is provided
       textField: displayText,
       textSize: (displayText != null) ? 18.0 : null,
       textAnchor: (displayText != null) ? TextAnchor.BOTTOM : null,
