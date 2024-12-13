@@ -40,7 +40,6 @@ class EarthMapPageState extends State<EarthMapPage> {
   void initState() {
     super.initState();
     logger.i('Initializing EarthMapPage');
-
     _addressController.addListener(_onAddressChanged);
   }
 
@@ -282,18 +281,18 @@ class EarthMapPageState extends State<EarthMapPage> {
   Widget _buildAddressSearchWidget() {
     if (!_showSearchBar) return const SizedBox.shrink();
 
-    // Place the search bar next to the search button:
-    // The search button is at top:40, left:10.
-    // Let's place the search bar starting at left:60.
     return Positioned(
       top: 40,
-      left: 60,
-      width: 250, // fixed width for simplicity
+      left: 80, // increased margin to create more space between search button and bar
+      width: 250, 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            color: Colors.white.withOpacity(0.9),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(8), // Rounded corners
+            ),
             padding: const EdgeInsets.all(8),
             child: Row(
               children: [
@@ -302,6 +301,7 @@ class EarthMapPageState extends State<EarthMapPage> {
                     controller: _addressController,
                     decoration: const InputDecoration(
                       hintText: 'Enter address',
+                      border: InputBorder.none, // To match rounded corners look
                     ),
                   ),
                 ),
@@ -345,11 +345,14 @@ class EarthMapPageState extends State<EarthMapPage> {
               ],
             ),
           ),
-          // Suggestion list
           if (_suggestions.isNotEmpty)
             Container(
               width: 250,
-              color: Colors.white,
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: _suggestions.map((s) {
@@ -358,7 +361,6 @@ class EarthMapPageState extends State<EarthMapPage> {
                       _addressController.text = s;
                       _suggestions.clear();
                       setState(() {});
-                      // Optionally trigger a search immediately if desired
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
