@@ -53,7 +53,6 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   void _onAddressChanged() {
-    // Debounce to reduce API calls
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
       final query = _addressController.text.trim();
@@ -195,7 +194,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   Widget _buildSearchToggleButton() {
     return Positioned(
       top: 40,
-      left: 60,
+      left: 10,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           shape: const CircleBorder(),
@@ -283,14 +282,15 @@ class EarthMapPageState extends State<EarthMapPage> {
   Widget _buildAddressSearchWidget() {
     if (!_showSearchBar) return const SizedBox.shrink();
 
-    final double containerWidth = MediaQuery.of(context).size.width * 0.5;
-    final double containerLeft = (MediaQuery.of(context).size.width - containerWidth) / 2;
-
+    // Place the search bar next to the search button:
+    // The search button is at top:40, left:10.
+    // Let's place the search bar starting at left:60.
     return Positioned(
-      top: 200,
-      left: containerLeft,
-      width: containerWidth,
+      top: 40,
+      left: 60,
+      width: 250, // fixed width for simplicity
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             color: Colors.white.withOpacity(0.9),
@@ -348,6 +348,7 @@ class EarthMapPageState extends State<EarthMapPage> {
           // Suggestion list
           if (_suggestions.isNotEmpty)
             Container(
+              width: 250,
               color: Colors.white,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,10 +357,8 @@ class EarthMapPageState extends State<EarthMapPage> {
                     onTap: () {
                       _addressController.text = s;
                       _suggestions.clear();
-                      setState(() {}); // to refresh UI
-
-                      // Optionally, directly search after suggestion pick:
-                      // Similar to pressing "Search"
+                      setState(() {});
+                      // Optionally trigger a search immediately if desired
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
