@@ -283,15 +283,15 @@ class EarthMapPageState extends State<EarthMapPage> {
 
     return Positioned(
       top: 40,
-      left: 80, // increased margin to create more space between search button and bar
-      width: 250, 
+      left: 80,
+      width: 250,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(8), // Rounded corners
+              borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.all(8),
             child: Row(
@@ -301,7 +301,7 @@ class EarthMapPageState extends State<EarthMapPage> {
                     controller: _addressController,
                     decoration: const InputDecoration(
                       hintText: 'Enter address',
-                      border: InputBorder.none, // To match rounded corners look
+                      border: InputBorder.none,
                     ),
                   ),
                 ),
@@ -312,6 +312,11 @@ class EarthMapPageState extends State<EarthMapPage> {
                     if (address.isEmpty) {
                       return;
                     }
+
+                    // Extract only the first part of the address before the first comma
+                    final parts = address.split(',');
+                    final streetPart = parts.isNotEmpty ? parts[0].trim() : address;
+
                     final coords = await GeocodingService.fetchCoordinatesFromAddress(address);
                     if (coords != null) {
                       logger.i('Coordinates received: $coords');
@@ -320,9 +325,10 @@ class EarthMapPageState extends State<EarthMapPage> {
 
                       final geometry = Point(coordinates: Position(lng, lat));
 
+                      // Add annotation without custom image to use default icon
                       await _annotationsManager.addAnnotation(
                         geometry,
-                        title: "Searched Place",
+                        title: streetPart,
                         date: "",
                       );
                       logger.i('Annotation placed at searched location.');
