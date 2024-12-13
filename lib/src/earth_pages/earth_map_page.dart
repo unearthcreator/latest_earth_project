@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/services.dart'; // for rootBundle
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:flutter/services.dart'; // for rootBundle
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:map_mvp_project/repositories/local_annotations_repository.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
@@ -13,6 +13,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:map_mvp_project/services/geocoding_service.dart';
+import 'package:uuid/uuid.dart'; // for generating unique IDs
+import 'package:map_mvp_project/models/annotation.dart'; // for Annotation model
 
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
@@ -36,6 +38,8 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   List<String> _suggestions = [];
   Timer? _debounceTimer;
+
+  final uuid = Uuid(); // For generating unique IDs
 
   @override
   void initState() {
@@ -330,13 +334,32 @@ class EarthMapPageState extends State<EarthMapPage> {
                       final bytes = await rootBundle.load('assets/icons/cross.png');
                       final imageData = bytes.buffer.asUint8List();
 
-                      await _annotationsManager.addAnnotation(
+                      // Here we also save the annotation to Hive and register it in _annotationIdMap
+                      // Generate a unique ID for the annotation
+                      final annotationId = uuid.v4();
+                      final annotation = Annotation(
+                        id: annotationId,
+                        title: streetPart,
+                        iconName: "cross",
+                        date: "",
+                        note: "",
+                        latitude: lat,
+                        longitude: lng,
+                        imagePath: null,
+                      );
+                      await _localRepo.addAnnotation(annotation);
+                      logger.i('Searched annotation saved to Hive with id: $annotationId');
+
+                      final mapAnnotation = await _annotationsManager.addAnnotation(
                         geometry,
                         image: imageData,
                         title: streetPart,
                         date: "",
                       );
                       logger.i('Annotation placed at searched location.');
+
+                      // Register this annotation with MapGestureHandler so it can be clicked
+                      _gestureHandler.registerAnnotationId(mapAnnotation.id, annotationId);
 
                       _mapboxMap.setCamera(
                         CameraOptions(

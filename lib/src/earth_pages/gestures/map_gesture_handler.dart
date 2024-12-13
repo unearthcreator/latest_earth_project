@@ -336,6 +336,11 @@ class MapGestureHandler {
     _trashCanHandler.hideTrashCan();
   }
 
+  // New method to register annotation IDs
+  void registerAnnotationId(String mapAnnotationId, String hiveId) {
+    _annotationIdMap[mapAnnotationId] = hiveId;
+  }
+
   void dispose() {
     cancelTimer();
   }
