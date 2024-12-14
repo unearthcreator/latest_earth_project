@@ -8,6 +8,7 @@ import 'package:map_mvp_project/repositories/local_annotations_repository.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/annotations/map_annotations_manager.dart';
 import 'package:map_mvp_project/src/earth_pages/gestures/map_gesture_handler.dart';
+import 'package:map_mvp_project/src/earth_pages/utils/trash_can_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -46,7 +47,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   PointAnnotation? _annotationMenuAnnotation;
   Offset _annotationMenuOffset = Offset.zero;
 
-  bool _isDragging = false; // To know if we are in drag mode
+  bool _isDragging = false; // Are we in drag (move) mode?
   String get _annotationButtonText => _isDragging ? 'Lock' : 'Move';
 
   @override
@@ -122,12 +123,12 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   void _handleAnnotationLongPress(PointAnnotation annotation, Point annotationPosition) async {
-    // Convert annotationPosition to screen coordinates
     final screenPos = await _mapboxMap.pixelForCoordinate(annotationPosition);
     setState(() {
       _annotationMenuAnnotation = annotation;
       _showAnnotationMenu = true;
-      _annotationMenuOffset = Offset(screenPos.x + 30, screenPos.y); // Slight shift to the right
+      // Position menu slightly to the right of annotation
+      _annotationMenuOffset = Offset(screenPos.x + 30, screenPos.y);
     });
   }
 
@@ -141,7 +142,8 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   void _handleDragEnd() {
-    // Drag ended - nothing special for now, we can leave the button there
+    // Drag ended - we do nothing special here, the button stays
+    // User can still move unless locked
   }
 
   void _handleLongPress(LongPressStartDetails details) {
@@ -159,7 +161,7 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   void _handleLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
     try {
-      if (_gestureHandler.isDragging) {
+      if (_isDragging) { // If we are in drag mode, handle drag
         final screenPoint = ScreenCoordinate(
           x: details.localPosition.dx,
           y: details.localPosition.dy,
@@ -174,7 +176,11 @@ class EarthMapPageState extends State<EarthMapPage> {
   void _handleLongPressEnd(LongPressEndDetails details) {
     try {
       logger.i('Long press ended');
-      _gestureHandler.endDrag();
+      if (_isDragging) {
+        // If we are in drag mode and user released long press,
+        // call endDrag anyway
+        _gestureHandler.endDrag();
+      }
     } catch (e, stackTrace) {
       logger.e('Error handling long press end', error: e, stackTrace: stackTrace);
     }
@@ -205,7 +211,9 @@ class EarthMapPageState extends State<EarthMapPage> {
       onLongPressEnd: _handleLongPressEnd,
       onLongPressCancel: () {
         logger.i('Long press cancelled');
-        _gestureHandler.endDrag();
+        if (_isDragging) {
+          _gestureHandler.endDrag();
+        }
       },
       child: MapWidget(
         cameraOptions: MapConfig.defaultCameraOptions,
@@ -351,7 +359,6 @@ class EarthMapPageState extends State<EarthMapPage> {
                       return;
                     }
 
-                    // Extract only the first part of the address before the first comma
                     final parts = address.split(',');
                     final streetPart = parts.isNotEmpty ? parts[0].trim() : address;
 
@@ -363,11 +370,9 @@ class EarthMapPageState extends State<EarthMapPage> {
 
                       final geometry = Point(coordinates: Position(lng, lat));
 
-                      // Load the cross icon from assets
                       final bytes = await rootBundle.load('assets/icons/cross.png');
                       final imageData = bytes.buffer.asUint8List();
 
-                      // Save annotation to Hive
                       final annotationId = uuid.v4();
                       final annotation = Annotation(
                         id: annotationId,
@@ -390,7 +395,6 @@ class EarthMapPageState extends State<EarthMapPage> {
                       );
                       logger.i('Annotation placed at searched location.');
 
-                      // Register this annotation with MapGestureHandler so it can be clicked
                       _gestureHandler.registerAnnotationId(mapAnnotation.id, annotationId);
 
                       _mapboxMap.setCamera(
@@ -442,38 +446,36 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   Widget _buildAnnotationMenu() {
-  if (!_showAnnotationMenu || _annotationMenuAnnotation == null) return const SizedBox.shrink();
+    if (!_showAnnotationMenu || _annotationMenuAnnotation == null) return const SizedBox.shrink();
 
-  return Positioned(
-    left: _annotationMenuOffset.dx,
-    top: _annotationMenuOffset.dy,
-    child: ElevatedButton(
-      onPressed: () {
-        setState(() {
-          // If we are already dragging, lock it (stop dragging),
-          // otherwise start dragging.
-          if (_isDragging) {
-            // User clicked "Lock"
-            _gestureHandler.endDrag();
-            _isDragging = false;
-            // Keep menu visible, now button says "Move"
-          } else {
-            // User clicked "Move"
-            // DO NOT hide the menu here. Just start dragging mode.
-            _gestureHandler.startDraggingSelectedAnnotation();
-            _isDragging = true;
-            // Now button says "Lock"
-          }
-        });
-      },
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    return Positioned(
+      left: _annotationMenuOffset.dx,
+      top: _annotationMenuOffset.dy,
+      child: ElevatedButton(
+        onPressed: () {
+          setState(() {
+            if (_isDragging) {
+              // User clicked "Lock"
+              _gestureHandler.hideTrashCanAndStopDragging();
+              _isDragging = false;
+              // Keep menu visible, now button says "Move"
+            } else {
+              // User clicked "Move"
+              _gestureHandler.startDraggingSelectedAnnotation();
+              _isDragging = true;
+              // Trash can is shown by startDraggingSelectedAnnotation
+            }
+          });
+        },
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        child: Text(_annotationButtonText),
       ),
-      child: Text(_annotationButtonText),
-    ),
-  );
-}
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

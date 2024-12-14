@@ -13,6 +13,10 @@ import 'package:uuid/uuid.dart'; // for unique IDs
 import 'package:map_mvp_project/models/annotation.dart'; // Your Annotation model
 import 'package:map_mvp_project/repositories/local_annotations_repository.dart'; // Your local repo
 
+typedef AnnotationLongPressCallback = void Function(PointAnnotation annotation, Point annotationPosition);
+typedef AnnotationDragUpdateCallback = void Function(PointAnnotation annotation);
+typedef DragEndCallback = void Function();
+
 class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
   final void Function(PointAnnotation) onClick;
 
@@ -25,17 +29,14 @@ class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
   }
 }
 
-typedef AnnotationDragUpdateCallback = void Function(PointAnnotation);
-typedef DragEndCallback = void Function();
-
 class MapGestureHandler {
   final MapboxMap mapboxMap;
   final MapAnnotationsManager annotationsManager;
   final BuildContext context;
   final LocalAnnotationsRepository localAnnotationsRepository;
-  final void Function(PointAnnotation annotation, Point annotationPosition) onAnnotationLongPress;
-  final AnnotationDragUpdateCallback onAnnotationDragUpdate;
-  final DragEndCallback onDragEnd;
+  final AnnotationLongPressCallback? onAnnotationLongPress;
+  final AnnotationDragUpdateCallback? onAnnotationDragUpdate;
+  final DragEndCallback? onDragEnd;
 
   Timer? _longPressTimer;
   Timer? _placementDialogTimer;
@@ -60,9 +61,9 @@ class MapGestureHandler {
     required this.annotationsManager,
     required this.context,
     required this.localAnnotationsRepository,
-    required this.onAnnotationLongPress,
-    required this.onAnnotationDragUpdate,
-    required this.onDragEnd,
+    this.onAnnotationLongPress,
+    this.onAnnotationDragUpdate,
+    this.onDragEnd,
   }) : _trashCanHandler = TrashCanHandler(context: context) {
     annotationsManager.pointAnnotationManager.addOnPointAnnotationClickListener(
       MyPointAnnotationClickListener((clickedAnnotation) {
@@ -129,23 +130,16 @@ class MapGestureHandler {
           } catch (e) {
             logger.e('Error storing original point: $e');
           }
-          // Instead of immediately starting drag timer, we call the menu
-          onAnnotationLongPress(_selectedAnnotation!, _originalPoint!);
+          // Instead of starting drag timer directly, call the onAnnotationLongPress callback
+          if (onAnnotationLongPress != null) {
+            onAnnotationLongPress!(_selectedAnnotation!, _originalPoint!);
+          }
         } else {
           logger.w('No annotation found to start dragging.');
         }
       }
     } catch (e) {
       logger.e('Error during feature query: $e');
-    }
-  }
-
-  void startDraggingSelectedAnnotation() {
-    if (_selectedAnnotation != null) {
-      logger.i('User chose to move annotation. Starting drag mode.');
-      _isDragging = true;
-      _isProcessingDrag = false;
-      _trashCanHandler.showTrashCan();
     }
   }
 
@@ -164,8 +158,11 @@ class MapGestureHandler {
       if (newPoint != null) {
         logger.i('Updating annotation ${annotationToUpdate.id} position to $newPoint');
         await annotationsManager.updateVisualPosition(annotationToUpdate, newPoint);
-        // Notify EarthMapPage to update button position
-        onAnnotationDragUpdate(annotationToUpdate);
+
+        // Notify EarthMapPage that drag updated (to move button)
+        if (onAnnotationDragUpdate != null) {
+          onAnnotationDragUpdate!(annotationToUpdate);
+        }
       }
     } catch (e) {
       logger.e('Error during drag: $e');
@@ -197,25 +194,15 @@ class MapGestureHandler {
         if (_originalPoint != null) {
           logger.i('Reverting annotation ${annotationToRemove.id} to ${_originalPoint?.coordinates}');
           await annotationsManager.updateVisualPosition(annotationToRemove, _originalPoint!);
+          revertedPosition = true;
         } else {
           logger.w('No original point stored, cannot revert.');
         }
       }
     }
 
-    _isDragging = false;
-    _isProcessingDrag = false;
-    _lastDragScreenPoint = null;
-    _originalPoint = null;
-    _trashCanHandler.hideTrashCan();
-    onDragEnd(); // Notify EarthMapPage that drag ended
-
-    if (removedAnnotation) {
-      logger.i('Annotation removed successfully.');
-    } else if (revertedPosition) {
-      logger.i('Annotation reverted to original position.');
-    } else {
-      logger.i('No removal or revert occurred.');
+    if (onDragEnd != null) {
+      onDragEnd!();
     }
   }
 
@@ -261,7 +248,7 @@ class MapGestureHandler {
           _chosenIconName = initialData['icon'] as String;
           _chosenDate = initialData['date'] as String;
 
-          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, date=$_chosenDate from initial dialog. Showing annotation form dialog next.');
+          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, date=$_chosenDate.');
           final result = await showAnnotationFormDialog(
             context,
             title: _chosenTitle!,
@@ -341,13 +328,24 @@ class MapGestureHandler {
     _isDragging = false;
     _isProcessingDrag = false;
     _originalPoint = null;
-    _trashCanHandler.hideTrashCan();
+    // Don't hide trash can here
   }
 
   void registerAnnotationId(String mapAnnotationId, String hiveId) {
     _annotationIdMap[mapAnnotationId] = hiveId;
   }
 
-  bool get isDragging => _isDragging;
-  PointAnnotation? get selectedAnnotation => _selectedAnnotation;
+  void startDraggingSelectedAnnotation() {
+    logger.i('User chose to move annotation. Starting drag mode.');
+    _isDragging = true;
+    _isProcessingDrag = false;
+    _trashCanHandler.showTrashCan();
+  }
+
+  void hideTrashCanAndStopDragging() {
+    logger.i('Locking annotation in place and hiding trash can.');
+    _isDragging = false;
+    _isProcessingDrag = false;
+    _trashCanHandler.hideTrashCan();
+  }
 }
