@@ -16,6 +16,7 @@ import 'package:map_mvp_project/repositories/local_annotations_repository.dart';
 typedef AnnotationLongPressCallback = void Function(PointAnnotation annotation, Point annotationPosition);
 typedef AnnotationDragUpdateCallback = void Function(PointAnnotation annotation);
 typedef DragEndCallback = void Function();
+typedef AnnotationRemovedCallback = void Function();
 
 class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
   final void Function(PointAnnotation) onClick;
@@ -37,6 +38,7 @@ class MapGestureHandler {
   final AnnotationLongPressCallback? onAnnotationLongPress;
   final AnnotationDragUpdateCallback? onAnnotationDragUpdate;
   final DragEndCallback? onDragEnd;
+  final AnnotationRemovedCallback? onAnnotationRemoved;
 
   Timer? _longPressTimer;
   Timer? _placementDialogTimer;
@@ -64,6 +66,7 @@ class MapGestureHandler {
     this.onAnnotationLongPress,
     this.onAnnotationDragUpdate,
     this.onDragEnd,
+    this.onAnnotationRemoved,
   }) : _trashCanHandler = TrashCanHandler(context: context) {
     annotationsManager.pointAnnotationManager.addOnPointAnnotationClickListener(
       MyPointAnnotationClickListener((clickedAnnotation) {
@@ -130,12 +133,12 @@ class MapGestureHandler {
           } catch (e) {
             logger.e('Error storing original point: $e');
           }
-          // Instead of starting drag timer directly, call the onAnnotationLongPress callback
+          // Instead of starting drag, we call onAnnotationLongPress so EarthMapPage can show the menu
           if (onAnnotationLongPress != null) {
             onAnnotationLongPress!(_selectedAnnotation!, _originalPoint!);
           }
         } else {
-          logger.w('No annotation found to start dragging.');
+          logger.w('No annotation found.');
         }
       }
     } catch (e) {
@@ -181,7 +184,7 @@ class MapGestureHandler {
     if (annotationToRemove != null &&
         _lastDragScreenPoint != null &&
         _trashCanHandler.isOverTrashCan(_lastDragScreenPoint!)) {
-      
+
       logger.i('Annotation ${annotationToRemove.id} dropped over trash can. Showing removal dialog.');
       final shouldRemove = await _showRemoveConfirmationDialog();
 
@@ -189,6 +192,10 @@ class MapGestureHandler {
         logger.i('User confirmed removal - removing annotation ${annotationToRemove.id}.');
         await annotationsManager.removeAnnotation(annotationToRemove);
         removedAnnotation = true;
+        // After successful removal, notify EarthMapPage
+        if (onAnnotationRemoved != null) {
+          onAnnotationRemoved!();
+        }
       } else {
         logger.i('User cancelled removal - attempting to revert annotation to original position.');
         if (_originalPoint != null) {
@@ -328,7 +335,6 @@ class MapGestureHandler {
     _isDragging = false;
     _isProcessingDrag = false;
     _originalPoint = null;
-    // Don't hide trash can here
   }
 
   void registerAnnotationId(String mapAnnotationId, String hiveId) {

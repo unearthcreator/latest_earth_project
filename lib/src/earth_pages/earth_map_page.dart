@@ -104,6 +104,7 @@ class EarthMapPageState extends State<EarthMapPage> {
         onAnnotationLongPress: _handleAnnotationLongPress,
         onAnnotationDragUpdate: _handleAnnotationDragUpdate,
         onDragEnd: _handleDragEnd,
+        onAnnotationRemoved: _handleAnnotationRemoved, // Call this after removal
       );
 
       logger.i('Map initialization completed successfully');
@@ -142,8 +143,17 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   void _handleDragEnd() {
-    // Drag ended - we do nothing special here, the button stays
-    // User can still move unless locked
+    // Drag ended - no special action needed here
+  }
+
+  // Called when annotation is removed
+  void _handleAnnotationRemoved() {
+    setState(() {
+      // Hide the menu and reset state
+      _showAnnotationMenu = false;
+      _annotationMenuAnnotation = null;
+      _isDragging = false; // Also ensure we're not in drag mode anymore
+    });
   }
 
   void _handleLongPress(LongPressStartDetails details) {
@@ -161,7 +171,7 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   void _handleLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
     try {
-      if (_isDragging) { // If we are in drag mode, handle drag
+      if (_isDragging) {
         final screenPoint = ScreenCoordinate(
           x: details.localPosition.dx,
           y: details.localPosition.dy,
@@ -177,8 +187,6 @@ class EarthMapPageState extends State<EarthMapPage> {
     try {
       logger.i('Long press ended');
       if (_isDragging) {
-        // If we are in drag mode and user released long press,
-        // call endDrag anyway
         _gestureHandler.endDrag();
       }
     } catch (e, stackTrace) {
