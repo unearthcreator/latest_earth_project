@@ -30,6 +30,7 @@ class MapGestureHandler {
   final MapAnnotationsManager annotationsManager;
   final BuildContext context;
   final LocalAnnotationsRepository localAnnotationsRepository;
+  final void Function(PointAnnotation annotation, Point annotationPosition)? onAnnotationLongPress;
 
   Timer? _longPressTimer;
   Timer? _placementDialogTimer;
@@ -54,6 +55,7 @@ class MapGestureHandler {
     required this.annotationsManager,
     required this.context,
     required this.localAnnotationsRepository,
+    this.onAnnotationLongPress,
   }) : _trashCanHandler = TrashCanHandler(context: context) {
     annotationsManager.pointAnnotationManager.addOnPointAnnotationClickListener(
       MyPointAnnotationClickListener((clickedAnnotation) {
@@ -120,9 +122,12 @@ class MapGestureHandler {
           } catch (e) {
             logger.e('Error storing original point: $e');
           }
-          _startDragTimer();
+          // Instead of starting drag timer immediately, we call onAnnotationLongPress callback
+          if (onAnnotationLongPress != null) {
+            onAnnotationLongPress!(_selectedAnnotation!, pressPoint);
+          }
         } else {
-          logger.w('No annotation found to start dragging.');
+          logger.w('No annotation found to initiate menu/drag.');
         }
       }
     } catch (e) {
@@ -130,15 +135,12 @@ class MapGestureHandler {
     }
   }
 
-  void _startDragTimer() {
-    _longPressTimer?.cancel();
-    logger.i('Starting drag timer.');
-    _longPressTimer = Timer(const Duration(seconds: 1), () {
-      logger.i('Drag timer completed - annotation can now be dragged.');
-      _isDragging = true;
-      _isProcessingDrag = false;
-      _trashCanHandler.showTrashCan();
-    });
+  // Called from earth_map_page when the user chooses "Move" from the menu
+  void startDraggingSelectedAnnotation() {
+    logger.i('User chose to move annotation. Starting drag mode.');
+    _isDragging = true;
+    _isProcessingDrag = false;
+    _trashCanHandler.showTrashCan();
   }
 
   Future<void> handleDrag(ScreenCoordinate screenPoint) async {
@@ -339,10 +341,6 @@ class MapGestureHandler {
   // New method to register annotation IDs
   void registerAnnotationId(String mapAnnotationId, String hiveId) {
     _annotationIdMap[mapAnnotationId] = hiveId;
-  }
-
-  void dispose() {
-    cancelTimer();
   }
 
   bool get isDragging => _isDragging;

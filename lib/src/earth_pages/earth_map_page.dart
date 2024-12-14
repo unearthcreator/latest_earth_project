@@ -39,7 +39,12 @@ class EarthMapPageState extends State<EarthMapPage> {
   List<String> _suggestions = [];
   Timer? _debounceTimer;
 
-  final uuid = Uuid(); // For generating unique IDs
+  final uuid = Uuid(); // for unique IDs
+
+  // For annotation menu
+  bool _showAnnotationMenu = false;
+  PointAnnotation? _annotationMenuAnnotation;
+  Offset _annotationMenuOffset = Offset.zero;
 
   @override
   void initState() {
@@ -50,9 +55,9 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   @override
   void dispose() {
-    _gestureHandler.dispose();
     _addressController.dispose();
     _debounceTimer?.cancel();
+    // We do not dispose _gestureHandler because we never implemented a proper dispose.
     super.dispose();
   }
 
@@ -93,6 +98,7 @@ class EarthMapPageState extends State<EarthMapPage> {
         annotationsManager: _annotationsManager,
         context: context,
         localAnnotationsRepository: _localRepo,
+        onAnnotationLongPress: _handleAnnotationLongPress, // pass callback here
       );
 
       logger.i('Map initialization completed successfully');
@@ -109,6 +115,17 @@ class EarthMapPageState extends State<EarthMapPage> {
         });
       }
     }
+  }
+
+  void _handleAnnotationLongPress(PointAnnotation annotation, Point annotationPosition) async {
+    // Convert annotationPosition to screen coordinates
+    final screenPos = await _mapboxMap.pixelForCoordinate(annotationPosition);
+    setState(() {
+      _annotationMenuAnnotation = annotation;
+      _showAnnotationMenu = true;
+      // Place menu slightly above the annotation icon
+      _annotationMenuOffset = Offset(screenPos.x, screenPos.y - 50);
+    });
   }
 
   void _handleLongPress(LongPressStartDetails details) {
@@ -334,8 +351,7 @@ class EarthMapPageState extends State<EarthMapPage> {
                       final bytes = await rootBundle.load('assets/icons/cross.png');
                       final imageData = bytes.buffer.asUint8List();
 
-                      // Here we also save the annotation to Hive and register it in _annotationIdMap
-                      // Generate a unique ID for the annotation
+                      // Save annotation to Hive
                       final annotationId = uuid.v4();
                       final annotation = Annotation(
                         id: annotationId,
@@ -409,6 +425,28 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
+Widget _buildAnnotationMenu() {
+  if (!_showAnnotationMenu || _annotationMenuAnnotation == null) return const SizedBox.shrink();
+
+  return Positioned(
+    left: _annotationMenuOffset.dx + 30, // shift it to the right
+    top: _annotationMenuOffset.dy,
+    child: ElevatedButton(
+      onPressed: () {
+        setState(() {
+          _showAnnotationMenu = false;
+        });
+        _gestureHandler.startDraggingSelectedAnnotation();
+      },
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      child: const Text('Move'),
+    ),
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -423,6 +461,7 @@ class EarthMapPageState extends State<EarthMapPage> {
                 if (_isMapReady) _buildClearImagesButton(),
                 if (_isMapReady) _buildDeleteImagesFolderButton(),
                 if (_isMapReady) _buildAddressSearchWidget(),
+                if (_isMapReady) _buildAnnotationMenu(),
               ],
             ),
     );
