@@ -46,6 +46,9 @@ class EarthMapPageState extends State<EarthMapPage> {
   PointAnnotation? _annotationMenuAnnotation;
   Offset _annotationMenuOffset = Offset.zero;
 
+  bool _isDragging = false; // To know if we are in drag mode
+  String get _annotationButtonText => _isDragging ? 'Lock' : 'Move';
+
   @override
   void initState() {
     super.initState();
@@ -57,7 +60,6 @@ class EarthMapPageState extends State<EarthMapPage> {
   void dispose() {
     _addressController.dispose();
     _debounceTimer?.cancel();
-    // We do not dispose _gestureHandler because we never implemented a proper dispose.
     super.dispose();
   }
 
@@ -98,7 +100,9 @@ class EarthMapPageState extends State<EarthMapPage> {
         annotationsManager: _annotationsManager,
         context: context,
         localAnnotationsRepository: _localRepo,
-        onAnnotationLongPress: _handleAnnotationLongPress, // pass callback here
+        onAnnotationLongPress: _handleAnnotationLongPress,
+        onAnnotationDragUpdate: _handleAnnotationDragUpdate,
+        onDragEnd: _handleDragEnd,
       );
 
       logger.i('Map initialization completed successfully');
@@ -123,9 +127,21 @@ class EarthMapPageState extends State<EarthMapPage> {
     setState(() {
       _annotationMenuAnnotation = annotation;
       _showAnnotationMenu = true;
-      // Place menu slightly above the annotation icon
-      _annotationMenuOffset = Offset(screenPos.x, screenPos.y - 50);
+      _annotationMenuOffset = Offset(screenPos.x + 30, screenPos.y); // Slight shift to the right
     });
+  }
+
+  void _handleAnnotationDragUpdate(PointAnnotation annotation) async {
+    // Update the button position as annotation moves
+    final screenPos = await _mapboxMap.pixelForCoordinate(annotation.geometry);
+    setState(() {
+      _annotationMenuAnnotation = annotation;
+      _annotationMenuOffset = Offset(screenPos.x + 30, screenPos.y);
+    });
+  }
+
+  void _handleDragEnd() {
+    // Drag ended - nothing special for now, we can leave the button there
   }
 
   void _handleLongPress(LongPressStartDetails details) {
@@ -425,28 +441,39 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
-Widget _buildAnnotationMenu() {
+  Widget _buildAnnotationMenu() {
   if (!_showAnnotationMenu || _annotationMenuAnnotation == null) return const SizedBox.shrink();
 
   return Positioned(
-    left: _annotationMenuOffset.dx + 30, // shift it to the right
+    left: _annotationMenuOffset.dx,
     top: _annotationMenuOffset.dy,
     child: ElevatedButton(
       onPressed: () {
         setState(() {
-          _showAnnotationMenu = false;
+          // If we are already dragging, lock it (stop dragging),
+          // otherwise start dragging.
+          if (_isDragging) {
+            // User clicked "Lock"
+            _gestureHandler.endDrag();
+            _isDragging = false;
+            // Keep menu visible, now button says "Move"
+          } else {
+            // User clicked "Move"
+            // DO NOT hide the menu here. Just start dragging mode.
+            _gestureHandler.startDraggingSelectedAnnotation();
+            _isDragging = true;
+            // Now button says "Lock"
+          }
         });
-        _gestureHandler.startDraggingSelectedAnnotation();
       },
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
-      child: const Text('Move'),
+      child: Text(_annotationButtonText),
     ),
   );
 }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

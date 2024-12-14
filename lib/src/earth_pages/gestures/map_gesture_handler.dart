@@ -25,12 +25,17 @@ class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
   }
 }
 
+typedef AnnotationDragUpdateCallback = void Function(PointAnnotation);
+typedef DragEndCallback = void Function();
+
 class MapGestureHandler {
   final MapboxMap mapboxMap;
   final MapAnnotationsManager annotationsManager;
   final BuildContext context;
   final LocalAnnotationsRepository localAnnotationsRepository;
-  final void Function(PointAnnotation annotation, Point annotationPosition)? onAnnotationLongPress;
+  final void Function(PointAnnotation annotation, Point annotationPosition) onAnnotationLongPress;
+  final AnnotationDragUpdateCallback onAnnotationDragUpdate;
+  final DragEndCallback onDragEnd;
 
   Timer? _longPressTimer;
   Timer? _placementDialogTimer;
@@ -55,7 +60,9 @@ class MapGestureHandler {
     required this.annotationsManager,
     required this.context,
     required this.localAnnotationsRepository,
-    this.onAnnotationLongPress,
+    required this.onAnnotationLongPress,
+    required this.onAnnotationDragUpdate,
+    required this.onDragEnd,
   }) : _trashCanHandler = TrashCanHandler(context: context) {
     annotationsManager.pointAnnotationManager.addOnPointAnnotationClickListener(
       MyPointAnnotationClickListener((clickedAnnotation) {
@@ -122,12 +129,10 @@ class MapGestureHandler {
           } catch (e) {
             logger.e('Error storing original point: $e');
           }
-          // Instead of starting drag timer immediately, we call onAnnotationLongPress callback
-          if (onAnnotationLongPress != null) {
-            onAnnotationLongPress!(_selectedAnnotation!, pressPoint);
-          }
+          // Instead of immediately starting drag timer, we call the menu
+          onAnnotationLongPress(_selectedAnnotation!, _originalPoint!);
         } else {
-          logger.w('No annotation found to initiate menu/drag.');
+          logger.w('No annotation found to start dragging.');
         }
       }
     } catch (e) {
@@ -135,12 +140,13 @@ class MapGestureHandler {
     }
   }
 
-  // Called from earth_map_page when the user chooses "Move" from the menu
   void startDraggingSelectedAnnotation() {
-    logger.i('User chose to move annotation. Starting drag mode.');
-    _isDragging = true;
-    _isProcessingDrag = false;
-    _trashCanHandler.showTrashCan();
+    if (_selectedAnnotation != null) {
+      logger.i('User chose to move annotation. Starting drag mode.');
+      _isDragging = true;
+      _isProcessingDrag = false;
+      _trashCanHandler.showTrashCan();
+    }
   }
 
   Future<void> handleDrag(ScreenCoordinate screenPoint) async {
@@ -158,6 +164,8 @@ class MapGestureHandler {
       if (newPoint != null) {
         logger.i('Updating annotation ${annotationToUpdate.id} position to $newPoint');
         await annotationsManager.updateVisualPosition(annotationToUpdate, newPoint);
+        // Notify EarthMapPage to update button position
+        onAnnotationDragUpdate(annotationToUpdate);
       }
     } catch (e) {
       logger.e('Error during drag: $e');
@@ -189,19 +197,18 @@ class MapGestureHandler {
         if (_originalPoint != null) {
           logger.i('Reverting annotation ${annotationToRemove.id} to ${_originalPoint?.coordinates}');
           await annotationsManager.updateVisualPosition(annotationToRemove, _originalPoint!);
-          revertedPosition = true;
         } else {
           logger.w('No original point stored, cannot revert.');
         }
       }
     }
 
-    _selectedAnnotation = null;
     _isDragging = false;
     _isProcessingDrag = false;
     _lastDragScreenPoint = null;
     _originalPoint = null;
     _trashCanHandler.hideTrashCan();
+    onDragEnd(); // Notify EarthMapPage that drag ended
 
     if (removedAnnotation) {
       logger.i('Annotation removed successfully.');
@@ -274,11 +281,10 @@ class MapGestureHandler {
               final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
               final imageData = bytes.buffer.asUint8List();
 
-              // Pass the title to addAnnotation so the text is displayed above the icon
               final mapAnnotation = await annotationsManager.addAnnotation(
                 _longPressPoint!,
                 image: imageData,
-                title: _chosenTitle!, // Pass the chosen title here
+                title: _chosenTitle!,
                 date: _chosenDate!
               );
 
@@ -338,7 +344,6 @@ class MapGestureHandler {
     _trashCanHandler.hideTrashCan();
   }
 
-  // New method to register annotation IDs
   void registerAnnotationId(String mapAnnotationId, String hiveId) {
     _annotationIdMap[mapAnnotationId] = hiveId;
   }
