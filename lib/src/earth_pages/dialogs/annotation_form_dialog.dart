@@ -11,9 +11,10 @@ Future<Map<String, String>?> showAnnotationFormDialog(
   required String title,
   required IconData chosenIcon,
   required String date,
+  String note = '', // Added note parameter with a default empty string
 }) async {
   logger.i('Showing annotation form dialog (icon, title, date, note).');
-  final noteController = TextEditingController();
+  final noteController = TextEditingController(text: note);
 
   String? selectedImagePath;
   String? selectedFilePath; // For the chosen file (PDF, DOC, etc.)

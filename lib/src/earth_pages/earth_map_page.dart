@@ -16,6 +16,8 @@ import 'package:path/path.dart' as p;
 import 'package:map_mvp_project/services/geocoding_service.dart';
 import 'package:uuid/uuid.dart'; // for generating unique IDs
 import 'package:map_mvp_project/models/annotation.dart'; // for Annotation model
+import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
+import 'package:map_mvp_project/src/earth_pages/dialogs/show_annotation_details_dialog.dart';
 
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
@@ -42,7 +44,6 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   final uuid = Uuid(); // for unique IDs
 
-  // For annotation menu
   bool _showAnnotationMenu = false;
   PointAnnotation? _annotationMenuAnnotation;
   Offset _annotationMenuOffset = Offset.zero;
@@ -104,7 +105,7 @@ class EarthMapPageState extends State<EarthMapPage> {
         onAnnotationLongPress: _handleAnnotationLongPress,
         onAnnotationDragUpdate: _handleAnnotationDragUpdate,
         onDragEnd: _handleDragEnd,
-        onAnnotationRemoved: _handleAnnotationRemoved, // Call this after removal
+        onAnnotationRemoved: _handleAnnotationRemoved,
       );
 
       logger.i('Map initialization completed successfully');
@@ -128,13 +129,11 @@ class EarthMapPageState extends State<EarthMapPage> {
     setState(() {
       _annotationMenuAnnotation = annotation;
       _showAnnotationMenu = true;
-      // Position menu slightly to the right of annotation
       _annotationMenuOffset = Offset(screenPos.x + 30, screenPos.y);
     });
   }
 
   void _handleAnnotationDragUpdate(PointAnnotation annotation) async {
-    // Update the button position as annotation moves
     final screenPos = await _mapboxMap.pixelForCoordinate(annotation.geometry);
     setState(() {
       _annotationMenuAnnotation = annotation;
@@ -143,16 +142,14 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   void _handleDragEnd() {
-    // Drag ended - no special action needed here
+    // Drag ended - no special action
   }
 
-  // Called when annotation is removed
   void _handleAnnotationRemoved() {
     setState(() {
-      // Hide the menu and reset state
       _showAnnotationMenu = false;
       _annotationMenuAnnotation = null;
-      _isDragging = false; // Also ensure we're not in drag mode anymore
+      _isDragging = false;
     });
   }
 
@@ -191,6 +188,83 @@ class EarthMapPageState extends State<EarthMapPage> {
       }
     } catch (e, stackTrace) {
       logger.e('Error handling long press end', error: e, stackTrace: stackTrace);
+    }
+  }
+
+  Future<void> _editAnnotation() async {
+    if (_annotationMenuAnnotation == null) return;
+    final mapId = _annotationMenuAnnotation!.id;
+    final hiveId = _gestureHandler.getHiveIdForAnnotation(_annotationMenuAnnotation!);
+    if (hiveId == null) {
+      logger.w('No hive ID found for this annotation.');
+      return;
+    }
+
+    final annotations = await _localRepo.getAnnotations();
+    Annotation ann = annotations.firstWhere((a) => a.id == hiveId,
+        orElse: () => Annotation(id:'notFound', title:'', iconName:'cross', date:'', note:'', latitude:0.0, longitude:0.0));
+
+    if (ann.id == 'notFound') {
+      logger.w('Annotation not found in Hive.');
+      return;
+    }
+
+    final title = ann.title;
+    final date = ann.date;
+    final note = ann.note;
+    IconData chosenIcon = Icons.star; // Map ann.iconName if needed
+
+    final result = await showAnnotationFormDialog(
+      context,
+      title: title,
+      chosenIcon: chosenIcon,
+      date: date,
+      note: note, // pass note here as the dialog supports note now
+    );
+
+    if (result != null) {
+      final updatedNote = result['note'] ?? '';
+      final updatedImagePath = result['imagePath'];
+      final updatedFilePath = result['filePath'];
+      logger.i('User edited note: $updatedNote, imagePath: $updatedImagePath, filePath: $updatedFilePath');
+
+      final updatedAnnotation = Annotation(
+        id: ann.id,
+        title: title, // If dialog can edit title/date, handle here
+        iconName: ann.iconName,
+        date: date,
+        note: updatedNote,
+        latitude: ann.latitude,
+        longitude: ann.longitude,
+        imagePath: updatedImagePath,
+      );
+
+      await _localRepo.updateAnnotation(updatedAnnotation);
+      logger.i('Annotation updated in Hive with id: ${ann.id}');
+
+      // Recreate on map
+      await _annotationsManager.removeAnnotation(_annotationMenuAnnotation!);
+      final geometry = Point(coordinates: Position(updatedAnnotation.longitude, updatedAnnotation.latitude));
+
+      final bytes = await rootBundle.load('assets/icons/${updatedAnnotation.iconName}.png');
+      final imageData = bytes.buffer.asUint8List();
+
+      final newMapAnnotation = await _annotationsManager.addAnnotation(
+        geometry,
+        image: imageData,
+        title: updatedAnnotation.title,
+        date: updatedAnnotation.date,
+      );
+
+      _gestureHandler.registerAnnotationId(newMapAnnotation.id, updatedAnnotation.id);
+
+      setState(() {
+        _annotationMenuAnnotation = newMapAnnotation;
+      });
+
+      logger.i('Annotation visually updated on map.');
+    } else {
+      logger.i('User cancelled edit.');
     }
   }
 
@@ -453,36 +527,83 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
-  Widget _buildAnnotationMenu() {
-    if (!_showAnnotationMenu || _annotationMenuAnnotation == null) return const SizedBox.shrink();
+Widget _buildAnnotationMenu() {
+  if (!_showAnnotationMenu || _annotationMenuAnnotation == null) return const SizedBox.shrink();
 
-    return Positioned(
-      left: _annotationMenuOffset.dx,
-      top: _annotationMenuOffset.dy,
-      child: ElevatedButton(
-        onPressed: () {
-          setState(() {
-            if (_isDragging) {
-              // User clicked "Lock"
-              _gestureHandler.hideTrashCanAndStopDragging();
-              _isDragging = false;
-              // Keep menu visible, now button says "Move"
-            } else {
-              // User clicked "Move"
-              _gestureHandler.startDraggingSelectedAnnotation();
-              _isDragging = true;
-              // Trash can is shown by startDraggingSelectedAnnotation
-            }
-          });
-        },
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  return Positioned(
+    left: _annotationMenuOffset.dx,
+    top: _annotationMenuOffset.dy,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              if (_isDragging) {
+                // User clicked "Lock"
+                _gestureHandler.hideTrashCanAndStopDragging();
+                _isDragging = false;
+              } else {
+                // User clicked "Move"
+                _gestureHandler.startDraggingSelectedAnnotation();
+                _isDragging = true;
+              }
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          child: Text(_annotationButtonText),
         ),
-        child: Text(_annotationButtonText),
-      ),
-    );
-  }
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: () async {
+            await _editAnnotation();
+            // menu stays visible
+          },
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          child: const Text('Edit'),
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: () {
+            // For now, just log a message
+            logger.i('Connect button clicked');
+            // In future, implement connect logic here
+          },
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          child: const Text('Connect'),
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: () {
+            // Close the menu without doing anything
+            setState(() {
+              _showAnnotationMenu = false;
+              _annotationMenuAnnotation = null;
+              if (_isDragging) {
+                _gestureHandler.hideTrashCanAndStopDragging();
+                _isDragging = false;
+              }
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

@@ -106,14 +106,28 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext co
             ),
             actions: [
               TextButton(
+                child: const Text('Save'),
+                onPressed: () {
+                  logger.i('Save pressed in initial form dialog. Creating annotation immediately.');
+                  logger.i('Returning title=${titleController.text.trim()}, icon=$chosenIconName, date=${dateController.text.trim()} with quickSave=true');
+                  Navigator.of(dialogContext).pop({
+                    'title': titleController.text.trim(),
+                    'icon': chosenIconName,
+                    'date': dateController.text.trim(),
+                    'quickSave': true,
+                  });
+                },
+              ),
+              TextButton(
                 child: const Text('Continue'),
                 onPressed: () {
                   logger.i('Continue pressed in initial form dialog.');
                   logger.i('Returning title=${titleController.text.trim()}, icon=$chosenIconName, date=${dateController.text.trim()}');
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
-                    'icon': chosenIconName, // now a string name from png
+                    'icon': chosenIconName,
                     'date': dateController.text.trim(),
+                    'quickSave': false,
                   });
                 },
               ),

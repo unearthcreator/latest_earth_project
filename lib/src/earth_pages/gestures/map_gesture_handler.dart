@@ -84,11 +84,8 @@ class MapGestureHandler {
   Future<void> _showAnnotationDetailsById(String id) async {
     final allAnnotations = await localAnnotationsRepository.getAnnotations();
     Annotation? ann;
-    try {
-      ann = allAnnotations.firstWhere((a) => a.id == id);
-    } catch (e) {
-      ann = null; // If not found, set to null
-    }
+    final found = allAnnotations.where((a) => a.id == id);
+    ann = found.isEmpty ? null : found.first;
 
     if (ann != null) {
       showAnnotationDetailsDialog(context, ann);
@@ -133,7 +130,7 @@ class MapGestureHandler {
           } catch (e) {
             logger.e('Error storing original point: $e');
           }
-          // Instead of starting drag, we call onAnnotationLongPress so EarthMapPage can show the menu
+          // Call onAnnotationLongPress so EarthMapPage can show the menu
           if (onAnnotationLongPress != null) {
             onAnnotationLongPress!(_selectedAnnotation!, _originalPoint!);
           }
@@ -162,7 +159,7 @@ class MapGestureHandler {
         logger.i('Updating annotation ${annotationToUpdate.id} position to $newPoint');
         await annotationsManager.updateVisualPosition(annotationToUpdate, newPoint);
 
-        // Notify EarthMapPage that drag updated (to move button)
+        // Notify EarthMapPage that drag updated
         if (onAnnotationDragUpdate != null) {
           onAnnotationDragUpdate!(annotationToUpdate);
         }
@@ -178,8 +175,6 @@ class MapGestureHandler {
     logger.i('Ending drag.');
     logger.i('Original point at end drag: ${_originalPoint?.coordinates}');
     final annotationToRemove = _selectedAnnotation;
-    bool removedAnnotation = false;
-    bool revertedPosition = false;
 
     if (annotationToRemove != null &&
         _lastDragScreenPoint != null &&
@@ -191,7 +186,6 @@ class MapGestureHandler {
       if (shouldRemove == true) {
         logger.i('User confirmed removal - removing annotation ${annotationToRemove.id}.');
         await annotationsManager.removeAnnotation(annotationToRemove);
-        removedAnnotation = true;
         // After successful removal, notify EarthMapPage
         if (onAnnotationRemoved != null) {
           onAnnotationRemoved!();
@@ -201,7 +195,6 @@ class MapGestureHandler {
         if (_originalPoint != null) {
           logger.i('Reverting annotation ${annotationToRemove.id} to ${_originalPoint?.coordinates}');
           await annotationsManager.updateVisualPosition(annotationToRemove, _originalPoint!);
-          revertedPosition = true;
         } else {
           logger.w('No original point stored, cannot revert.');
         }
@@ -255,22 +248,19 @@ class MapGestureHandler {
           _chosenIconName = initialData['icon'] as String;
           _chosenDate = initialData['date'] as String;
 
-          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, date=$_chosenDate.');
-          final result = await showAnnotationFormDialog(
-            context,
-            title: _chosenTitle!,
-            chosenIcon: Icons.star,
-            date: _chosenDate!,
-          );
-          logger.i('Annotation form dialog returned: $result');
-          if (result != null) {
-            final note = result['note'] ?? '';
-            final imagePath = result['imagePath'];
-            final filePath = result['filePath'];
-            logger.i('User entered note: $note, imagePath: $imagePath, filePath: $filePath');
+          // Check if user wants a quickSave
+          bool quickSave = initialData['quickSave'] == true;
+
+          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, date=$_chosenDate, quickSave=$quickSave.');
+
+          if (quickSave) {
+            // User wants to skip the second dialog and just create the annotation
+            final note = '';
+            final imagePath = null;
+            final filePath = null;
 
             if (_longPressPoint != null) {
-              logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
+              logger.i('Adding annotation (quickSave) at ${_longPressPoint?.coordinates}.');
 
               final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
               final imageData = bytes.buffer.asUint8List();
@@ -308,11 +298,69 @@ class MapGestureHandler {
               logger.i('Annotations currently in Hive: $savedAnnotations');
 
             } else {
-              logger.w('No long press point stored, cannot place annotation.');
+              logger.w('No long press point stored, cannot place annotation (quickSave).');
             }
 
           } else {
-            logger.i('User cancelled the annotation note dialog - no annotation added.');
+            // Proceed with showing the second dialog
+            final result = await showAnnotationFormDialog(
+              context,
+              title: _chosenTitle!,
+              chosenIcon: Icons.star,
+              date: _chosenDate!,
+            );
+            logger.i('Annotation form dialog returned: $result');
+            if (result != null) {
+              final note = result['note'] ?? '';
+              final imagePath = result['imagePath'];
+              final filePath = result['filePath'];
+              logger.i('User entered note: $note, imagePath: $imagePath, filePath: $filePath');
+
+              if (_longPressPoint != null) {
+                logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
+
+                final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
+                final imageData = bytes.buffer.asUint8List();
+
+                final mapAnnotation = await annotationsManager.addAnnotation(
+                  _longPressPoint!,
+                  image: imageData,
+                  title: _chosenTitle!,
+                  date: _chosenDate!
+                );
+
+                logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
+
+                final id = uuid.v4();
+                final latitude = _longPressPoint!.coordinates.lat.toDouble();
+                final longitude = _longPressPoint!.coordinates.lng.toDouble();
+
+                final annotation = Annotation(
+                  id: id,
+                  title: _chosenTitle!,
+                  iconName: _chosenIconName,
+                  date: _chosenDate!,
+                  note: note,
+                  latitude: latitude,
+                  longitude: longitude,
+                  imagePath: imagePath,
+                );
+
+                await localAnnotationsRepository.addAnnotation(annotation);
+                logger.i('Annotation saved to Hive with id: $id');
+
+                _annotationIdMap[mapAnnotation.id] = id;
+
+                final savedAnnotations = await localAnnotationsRepository.getAnnotations();
+                logger.i('Annotations currently in Hive: $savedAnnotations');
+
+              } else {
+                logger.w('No long press point stored, cannot place annotation.');
+              }
+
+            } else {
+              logger.i('User cancelled the annotation note dialog - no annotation added.');
+            }
           }
         } else {
           logger.i('User closed the initial form dialog - no annotation added.');
@@ -339,6 +387,14 @@ class MapGestureHandler {
 
   void registerAnnotationId(String mapAnnotationId, String hiveId) {
     _annotationIdMap[mapAnnotationId] = hiveId;
+  }
+
+  String? getHiveIdForAnnotation(PointAnnotation annotation) {
+    return _annotationIdMap[annotation.id];
+  }
+
+  String? getHiveIdForAnnotationId(String mapAnnotationId) {
+    return _annotationIdMap[mapAnnotationId];
   }
 
   void startDraggingSelectedAnnotation() {
