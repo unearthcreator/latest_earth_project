@@ -6,9 +6,6 @@ import 'package:file_picker/file_picker.dart'; // for picking files
 import 'package:path_provider/path_provider.dart'; // for getApplicationDocumentsDirectory
 import 'package:path/path.dart' as p; // for path operations
 
-// Make sure to import the initialization dialog code or declare it above.
-import 'annotation_initialization_dialog.dart';
-
 Future<Map<String, String>?> showAnnotationFormDialog(
   BuildContext context, {
   required String title,
@@ -57,19 +54,16 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                     // "Change" button centered beneath title and above the note
                     Center(
                       child: ElevatedButton(
-                        onPressed: () async {
+                        onPressed: () {
                           logger.i('User pressed the "Change" button.');
-                          // Close this form dialog first
-                          Navigator.of(dialogContext).pop();
-
-                          // After closing, immediately show the initialization dialog again 
-                          // with the previously chosen values.
-                          await showAnnotationInitializationDialog(
-                            context,
-                            initialTitle: title,
-                            initialIconName: chosenIconName.isNotEmpty ? chosenIconName : 'cross',
-                            initialDate: date,
-                          );
+                          // Instead of reopening the initialization dialog here,
+                          // just return an action "change" to the caller.
+                          Navigator.of(dialogContext).pop({
+                            'action': 'change',
+                            'title': title,
+                            'icon': chosenIconName,
+                            'date': date,
+                          });
                         },
                         child: const Text('Change'),
                       ),

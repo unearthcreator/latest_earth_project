@@ -9,6 +9,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
 }) async {
   logger.i('Showing initial form dialog (title, icon, date).');
   
+  // Prefill the fields with the provided initial values if they exist
   final titleController = TextEditingController(text: initialTitle ?? '');
   final dateController = TextEditingController(text: initialDate ?? '');
   String chosenIconName = initialIconName ?? "cross";
@@ -61,7 +62,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                       buildCounter: (context, {required int currentLength, required bool isFocused, required int? maxLength}) {
                         if (maxLength == null) return null;
                         if (currentLength == 0) {
-                          return null; // No counter if no characters typed
+                          return null; 
                         } else {
                           return Text(
                             '$currentLength/$maxLength',
