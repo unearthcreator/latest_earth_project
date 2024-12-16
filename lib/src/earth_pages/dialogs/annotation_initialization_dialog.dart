@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 
-Future<Map<String, dynamic>?> showAnnotationInitializationDialog(BuildContext context) async {
+Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
+  BuildContext context, {
+  String? initialTitle,
+  String? initialIconName,
+  String? initialDate,
+}) async {
   logger.i('Showing initial form dialog (title, icon, date).');
-  final titleController = TextEditingController();
-  final dateController = TextEditingController();
-
-  // Default to "cross" icon (now a PNG)
-  String chosenIconName = "cross";
+  
+  // Use the initial values if provided, otherwise default to empty strings and "cross"
+  final titleController = TextEditingController(text: initialTitle ?? '');
+  final dateController = TextEditingController(text: initialDate ?? '');
+  String chosenIconName = initialIconName ?? "cross";
 
   return showDialog<Map<String, dynamic>?>(
     context: context,

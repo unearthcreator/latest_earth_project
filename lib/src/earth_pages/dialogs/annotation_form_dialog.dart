@@ -10,8 +10,9 @@ Future<Map<String, String>?> showAnnotationFormDialog(
   BuildContext context, {
   required String title,
   required IconData chosenIcon,
+  String chosenIconName = '', // Made optional with a default value
   required String date,
-  String note = '', // Added note parameter with a default empty string
+  String note = '', // note is still optional with a default empty string
 }) async {
   logger.i('Showing annotation form dialog (icon, title, date, note).');
   final noteController = TextEditingController(text: note);
@@ -34,7 +35,7 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Row with icon (left), title (center, bigger), date (right)
+                    // Row with icon (left), title (center), and date (right)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -54,8 +55,14 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                     Center(
                       child: ElevatedButton(
                         onPressed: () {
-                          // Implement "Change" logic here
+                          // On "Change", return to the previous dialog
                           logger.i('User pressed the "Change" button.');
+                          Navigator.of(dialogContext).pop({
+                            'action': 'change',
+                            'title': title,
+                            'icon': chosenIconName,
+                            'date': date,
+                          });
                         },
                         child: const Text('Change'),
                       ),
@@ -106,7 +113,7 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                         ElevatedButton(
                           onPressed: () {
                             logger.i('Camera button clicked');
-                            // Future implementation:
+                            // Future implementation for camera:
                             // Navigate to custom camera screen or integrate camera plugin here
                           },
                           child: const Text('Open Camera'),
