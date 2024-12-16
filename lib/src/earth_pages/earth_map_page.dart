@@ -556,6 +556,8 @@ class EarthMapPageState extends State<EarthMapPage> {
                 setState(() {
                   _isConnectMode = false; // Cancel connect mode
                 });
+                // Notify the gesture handler
+                _gestureHandler.disableConnectMode();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -610,26 +612,30 @@ class EarthMapPageState extends State<EarthMapPage> {
             child: const Text('Edit'),
           ),
           const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: () {
-              logger.i('Connect button clicked');
-              // Enter connect mode
-              setState(() {
-                _showAnnotationMenu = false;
-                _annotationMenuAnnotation = null;
-                if (_isDragging) {
-                  _gestureHandler.hideTrashCanAndStopDragging();
-                  _isDragging = false;
-                }
-                _isConnectMode = true;
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            child: const Text('Connect'),
-          ),
+         ElevatedButton(
+  onPressed: () {
+    logger.i('Connect button clicked');
+    setState(() {
+      _showAnnotationMenu = false;
+      if (_isDragging) {
+        _gestureHandler.hideTrashCanAndStopDragging();
+        _isDragging = false;
+      }
+      _isConnectMode = true;
+    });
+    // Notify the gesture handler and pass the first annotation
+    if (_annotationMenuAnnotation != null) {
+      _gestureHandler.enableConnectMode(_annotationMenuAnnotation!);
+    } else {
+      logger.w('No annotation available when Connect pressed');
+    }
+  },
+  style: ElevatedButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  ),
+  child: const Text('Connect'),
+),
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: () {
