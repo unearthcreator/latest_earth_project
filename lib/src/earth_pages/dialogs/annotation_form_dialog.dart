@@ -6,13 +6,16 @@ import 'package:file_picker/file_picker.dart'; // for picking files
 import 'package:path_provider/path_provider.dart'; // for getApplicationDocumentsDirectory
 import 'package:path/path.dart' as p; // for path operations
 
+// Make sure to import the initialization dialog code or declare it above.
+import 'annotation_initialization_dialog.dart';
+
 Future<Map<String, String>?> showAnnotationFormDialog(
   BuildContext context, {
   required String title,
   required IconData chosenIcon,
-  String chosenIconName = '', // Made optional with a default value
+  String chosenIconName = '', // Optional, defaults to empty string
   required String date,
-  String note = '', // note is still optional with a default empty string
+  String note = '', // note is optional with a default empty string
 }) async {
   logger.i('Showing annotation form dialog (icon, title, date, note).');
   final noteController = TextEditingController(text: note);
@@ -54,15 +57,19 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                     // "Change" button centered beneath title and above the note
                     Center(
                       child: ElevatedButton(
-                        onPressed: () {
-                          // On "Change", return to the previous dialog
+                        onPressed: () async {
                           logger.i('User pressed the "Change" button.');
-                          Navigator.of(dialogContext).pop({
-                            'action': 'change',
-                            'title': title,
-                            'icon': chosenIconName,
-                            'date': date,
-                          });
+                          // Close this form dialog first
+                          Navigator.of(dialogContext).pop();
+
+                          // After closing, immediately show the initialization dialog again 
+                          // with the previously chosen values.
+                          await showAnnotationInitializationDialog(
+                            context,
+                            initialTitle: title,
+                            initialIconName: chosenIconName.isNotEmpty ? chosenIconName : 'cross',
+                            initialDate: date,
+                          );
                         },
                         child: const Text('Change'),
                       ),
@@ -113,8 +120,8 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                         ElevatedButton(
                           onPressed: () {
                             logger.i('Camera button clicked');
-                            // Future implementation for camera:
-                            // Navigate to custom camera screen or integrate camera plugin here
+                            // Future implementation:
+                            // Integrate camera plugin or custom camera screen
                           },
                           child: const Text('Open Camera'),
                         ),

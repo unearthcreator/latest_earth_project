@@ -9,7 +9,6 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
 }) async {
   logger.i('Showing initial form dialog (title, icon, date).');
   
-  // Use the initial values if provided, otherwise default to empty strings and "cross"
   final titleController = TextEditingController(text: initialTitle ?? '');
   final dateController = TextEditingController(text: initialDate ?? '');
   String chosenIconName = initialIconName ?? "cross";
@@ -113,8 +112,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
               TextButton(
                 child: const Text('Save'),
                 onPressed: () {
-                  logger.i('Save pressed in initial form dialog. Creating annotation immediately.');
-                  logger.i('Returning title=${titleController.text.trim()}, icon=$chosenIconName, date=${dateController.text.trim()} with quickSave=true');
+                  logger.i('Save pressed in initial form dialog. Returning quickSave=true');
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
@@ -126,8 +124,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
               TextButton(
                 child: const Text('Continue'),
                 onPressed: () {
-                  logger.i('Continue pressed in initial form dialog.');
-                  logger.i('Returning title=${titleController.text.trim()}, icon=$chosenIconName, date=${dateController.text.trim()}');
+                  logger.i('Continue pressed in initial form dialog. Returning quickSave=false');
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
