@@ -50,6 +50,17 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                       ],
                     ),
                     const SizedBox(height: 16),
+                    // "Change" button centered beneath title and above the note
+                    Center(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Implement "Change" logic here
+                          logger.i('User pressed the "Change" button.');
+                        },
+                        child: const Text('Change'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     const Text('Note:', style: TextStyle(fontWeight: FontWeight.bold)),
                     TextField(
                       controller: noteController,
@@ -111,7 +122,10 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                         fit: BoxFit.cover,
                       ),
                       const SizedBox(height: 8),
-                      Text('Selected image path: $selectedImagePath', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        'Selected image path: $selectedImagePath',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
                     ],
                     const SizedBox(height: 16),
                     ElevatedButton(
@@ -149,7 +163,10 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                     ),
                     if (selectedFilePath != null) ...[
                       const SizedBox(height: 8),
-                      Text('Selected file path: $selectedFilePath', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        'Selected file path: $selectedFilePath',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
                     ],
                   ],
                 ),
