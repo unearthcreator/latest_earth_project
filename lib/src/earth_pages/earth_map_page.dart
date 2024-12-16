@@ -109,6 +109,12 @@ class EarthMapPageState extends State<EarthMapPage> {
         onAnnotationDragUpdate: _handleAnnotationDragUpdate,
         onDragEnd: _handleDragEnd,
         onAnnotationRemoved: _handleAnnotationRemoved,
+        onConnectModeDisabled: () {
+          // When connect mode is disabled by the handler, also update UI state
+          setState(() {
+            _isConnectMode = false;
+          });
+        },
       );
 
       logger.i('Map initialization completed successfully');
@@ -612,30 +618,30 @@ class EarthMapPageState extends State<EarthMapPage> {
             child: const Text('Edit'),
           ),
           const SizedBox(height: 8),
-         ElevatedButton(
-  onPressed: () {
-    logger.i('Connect button clicked');
-    setState(() {
-      _showAnnotationMenu = false;
-      if (_isDragging) {
-        _gestureHandler.hideTrashCanAndStopDragging();
-        _isDragging = false;
-      }
-      _isConnectMode = true;
-    });
-    // Notify the gesture handler and pass the first annotation
-    if (_annotationMenuAnnotation != null) {
-      _gestureHandler.enableConnectMode(_annotationMenuAnnotation!);
-    } else {
-      logger.w('No annotation available when Connect pressed');
-    }
-  },
-  style: ElevatedButton.styleFrom(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  ),
-  child: const Text('Connect'),
-),
+          ElevatedButton(
+            onPressed: () {
+              logger.i('Connect button clicked');
+              setState(() {
+                _showAnnotationMenu = false;
+                if (_isDragging) {
+                  _gestureHandler.hideTrashCanAndStopDragging();
+                  _isDragging = false;
+                }
+                _isConnectMode = true;
+              });
+              // Notify the gesture handler and pass the first annotation
+              if (_annotationMenuAnnotation != null) {
+                _gestureHandler.enableConnectMode(_annotationMenuAnnotation!);
+              } else {
+                logger.w('No annotation available when Connect pressed');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            child: const Text('Connect'),
+          ),
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: () {

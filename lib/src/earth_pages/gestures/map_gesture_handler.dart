@@ -40,6 +40,9 @@ class MapGestureHandler {
   final DragEndCallback? onDragEnd;
   final AnnotationRemovedCallback? onAnnotationRemoved;
 
+  // New callback to notify when connect mode is disabled
+  VoidCallback? onConnectModeDisabled;
+
   Timer? _longPressTimer;
   Timer? _placementDialogTimer;
   Point? _longPressPoint;
@@ -72,6 +75,7 @@ class MapGestureHandler {
     this.onAnnotationDragUpdate,
     this.onDragEnd,
     this.onAnnotationRemoved,
+    this.onConnectModeDisabled, // Add callback here
   }) : _trashCanHandler = TrashCanHandler(context: context) {
     annotationsManager.pointAnnotationManager.addOnPointAnnotationClickListener(
       MyPointAnnotationClickListener((clickedAnnotation) {
@@ -100,26 +104,27 @@ class MapGestureHandler {
     _firstConnectAnnotation = firstAnnotation;
   }
 
-  // Disable connect mode
+  // Disable connect mode and notify page if callback is present
   void disableConnectMode() {
     logger.i('Connect mode disabled.');
     _isConnectMode = false;
     _firstConnectAnnotation = null;
+
+    if (onConnectModeDisabled != null) {
+      onConnectModeDisabled!();
+    }
   }
 
   Future<void> _handleConnectModeClick(PointAnnotation clickedAnnotation) async {
-    // If we already have a first annotation from enableConnectMode(), we just need the second one now
     if (_firstConnectAnnotation == null) {
-      // This scenario should not happen since we set the first annotation when enabling connect mode
+      // Shouldn't happen if enableConnectMode was called with an annotation
       logger.w('First connect annotation was null, but connect mode was enabled!');
       _firstConnectAnnotation = clickedAnnotation;
       logger.i('First annotation chosen for connection (fallback): ${clickedAnnotation.id}');
     } else {
-      // We already have a first annotation, now this is the second one
+      // We have a first annotation, now this is the second one
       logger.i('Second annotation chosen for connection: ${clickedAnnotation.id}');
       // TODO: Add logic here to draw a line between _firstConnectAnnotation and clickedAnnotation
-
-      // For now, just log it:
       logger.i('Would draw a line between ${_firstConnectAnnotation!.id} and ${clickedAnnotation.id}');
 
       // After connecting, disable connect mode
