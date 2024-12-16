@@ -51,6 +51,9 @@ class EarthMapPageState extends State<EarthMapPage> {
   bool _isDragging = false; // Are we in drag (move) mode?
   String get _annotationButtonText => _isDragging ? 'Lock' : 'Move';
 
+  // New state for connect mode
+  bool _isConnectMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -527,83 +530,129 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
-Widget _buildAnnotationMenu() {
-  if (!_showAnnotationMenu || _annotationMenuAnnotation == null) return const SizedBox.shrink();
+  Widget _buildConnectModeBanner() {
+    if (!_isConnectMode) return const SizedBox.shrink();
 
-  return Positioned(
-    left: _annotationMenuOffset.dx,
-    top: _annotationMenuOffset.dy,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ElevatedButton(
-          onPressed: () {
-            setState(() {
-              if (_isDragging) {
-                // User clicked "Lock"
-                _gestureHandler.hideTrashCanAndStopDragging();
-                _isDragging = false;
-              } else {
-                // User clicked "Move"
-                _gestureHandler.startDraggingSelectedAnnotation();
-                _isDragging = true;
-              }
-            });
-          },
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          child: Text(_annotationButtonText),
+    return Positioned(
+      top: 50,
+      left: (MediaQuery.of(context).size.width - 300) / 2, // Center the banner
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(8),
         ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () async {
-            await _editAnnotation();
-            // menu stays visible
-          },
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          child: const Text('Edit'),
+        child: Column(
+          children: [
+            const Text(
+              'Click another annotation to connect, or cancel.',
+              style: TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isConnectMode = false; // Cancel connect mode
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Cancel'),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () {
-            // For now, just log a message
-            logger.i('Connect button clicked');
-            // In future, implement connect logic here
-          },
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildAnnotationMenu() {
+    if (!_showAnnotationMenu || _annotationMenuAnnotation == null) return const SizedBox.shrink();
+
+    return Positioned(
+      left: _annotationMenuOffset.dx,
+      top: _annotationMenuOffset.dy,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                if (_isDragging) {
+                  // User clicked "Lock"
+                  _gestureHandler.hideTrashCanAndStopDragging();
+                  _isDragging = false;
+                } else {
+                  // User clicked "Move"
+                  _gestureHandler.startDraggingSelectedAnnotation();
+                  _isDragging = true;
+                }
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            child: Text(_annotationButtonText),
           ),
-          child: const Text('Connect'),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () {
-            // Close the menu without doing anything
-            setState(() {
-              _showAnnotationMenu = false;
-              _annotationMenuAnnotation = null;
-              if (_isDragging) {
-                _gestureHandler.hideTrashCanAndStopDragging();
-                _isDragging = false;
-              }
-            });
-          },
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () async {
+              await _editAnnotation();
+              // menu stays visible
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            child: const Text('Edit'),
           ),
-          child: const Text('Cancel'),
-        ),
-      ],
-    ),
-  );
-}
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () {
+              logger.i('Connect button clicked');
+              // Enter connect mode
+              setState(() {
+                _showAnnotationMenu = false;
+                _annotationMenuAnnotation = null;
+                if (_isDragging) {
+                  _gestureHandler.hideTrashCanAndStopDragging();
+                  _isDragging = false;
+                }
+                _isConnectMode = true;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            child: const Text('Connect'),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () {
+              // Close the menu without doing anything
+              setState(() {
+                _showAnnotationMenu = false;
+                _annotationMenuAnnotation = null;
+                if (_isDragging) {
+                  _gestureHandler.hideTrashCanAndStopDragging();
+                  _isDragging = false;
+                }
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -620,6 +669,7 @@ Widget _buildAnnotationMenu() {
                 if (_isMapReady) _buildDeleteImagesFolderButton(),
                 if (_isMapReady) _buildAddressSearchWidget(),
                 if (_isMapReady) _buildAnnotationMenu(),
+                if (_isMapReady) _buildConnectModeBanner(),
               ],
             ),
     );
