@@ -35,6 +35,7 @@ class MyApp extends ConsumerWidget {
         supportedLocales: const [
           Locale('en'),
           Locale('sv'),
+          Locale('en', 'US'), // Use 'en', 'US' instead of 'en_US'
         ],
       );
     } catch (e, stackTrace) {

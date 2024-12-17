@@ -7,11 +7,9 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
   String? initialIconName,
   String? initialDate,
 }) async {
-  logger.i('Showing initial form dialog (title, icon, date).');
+  logger.i('Showing initial form dialog (title, icon).');
   
-  // Prefill the fields with the provided initial values if they exist
   final titleController = TextEditingController(text: initialTitle ?? '');
-  final dateController = TextEditingController(text: initialDate ?? '');
   String chosenIconName = initialIconName ?? "cross";
 
   return showDialog<Map<String, dynamic>?>(
@@ -98,12 +96,14 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text('Date:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    TextField(
-                      controller: dateController,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter date',
-                      ),
+                    // Removed the date label and text field
+                    // Replaced with a button
+                    ElevatedButton(
+                      onPressed: () {
+                        logger.i('Add Date button clicked');
+                        // Future implementation: Open a date selection dialog here
+                      },
+                      child: const Text('Add Date'),
                     ),
                   ],
                 ),
@@ -117,7 +117,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
-                    'date': dateController.text.trim(),
+                    'date': '', // No date chosen yet
                     'quickSave': true,
                   });
                 },
@@ -129,7 +129,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
-                    'date': dateController.text.trim(),
+                    'date': '', // No date chosen yet
                     'quickSave': false,
                   });
                 },

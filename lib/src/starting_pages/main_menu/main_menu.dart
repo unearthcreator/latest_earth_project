@@ -10,7 +10,9 @@ class MainMenuPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    logger.i('MainMenuPage build started');
     final loc = AppLocalizations.of(context)!;
+    logger.i('Current locale: ${loc.localeName}. goToWorlds="${loc.goToWorlds}"');
 
     return Scaffold(
       backgroundColor: Colors.blueGrey[900],
@@ -64,7 +66,7 @@ class MainMenuPage extends ConsumerWidget {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    // Set locale to English
+                    logger.i('English locale button clicked');
                     ref.read(localeProvider.notifier).state = const Locale('en');
                   },
                   child: const Text('English'),
@@ -72,10 +74,18 @@ class MainMenuPage extends ConsumerWidget {
                 const SizedBox(width: 10),
                 ElevatedButton(
                   onPressed: () {
-                    // Set locale to Swedish
+                    logger.i('Swedish locale button clicked');
                     ref.read(localeProvider.notifier).state = const Locale('sv');
                   },
                   child: const Text('Svenska'),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: () {
+                    logger.i('English (US) locale button clicked');
+                    ref.read(localeProvider.notifier).state = const Locale('en', 'US');
+                  },
+                  child: const Text('English (US)'),
                 ),
               ],
             ),

@@ -18,3 +18,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get exit => 'Exit';
 }
+
+/// The translations for English, as used in the United States (`en_US`).
+class AppLocalizationsEnUs extends AppLocalizationsEn {
+  AppLocalizationsEnUs(): super('en_US');
+
+  @override
+  String get goToWorlds => 'Go to Worlds1';
+
+  @override
+  String get options => 'Options';
+
+  @override
+  String get subscription => 'Subscription';
+
+  @override
+  String get exit => 'Exit';
+}
