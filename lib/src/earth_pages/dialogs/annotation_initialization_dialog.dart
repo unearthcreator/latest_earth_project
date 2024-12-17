@@ -5,7 +5,6 @@ import 'package:map_mvp_project/l10n/app_localizations.dart';
 
 class YearInputFormatter extends TextInputFormatter {
   final RegExp _yearRegex = RegExp(r'^-?\d{0,4}$');
-
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     if (_yearRegex.hasMatch(newValue.text)) {
@@ -21,25 +20,11 @@ class MonthInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     final text = newValue.text;
-
-    // Empty is allowed while typing.
     if (text.isEmpty) return newValue;
-
-    // Only digits allowed.
     if (!RegExp(r'^\d+$').hasMatch(text)) return oldValue;
-
-    // If more than 2 digits, revert.
     if (text.length > 2) return oldValue;
-
-    // Parse the number.
     final month = int.tryParse(text);
-    if (month == null) return oldValue;
-
-    // Check range.
-    if (month < 1 || month > 12) {
-      return oldValue;
-    }
-
+    if (month == null || month < 1 || month > 12) return oldValue;
     return newValue;
   }
 }
@@ -49,25 +34,11 @@ class DayInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     final text = newValue.text;
-
-    // Empty is allowed while typing.
     if (text.isEmpty) return newValue;
-
-    // Only digits allowed.
     if (!RegExp(r'^\d+$').hasMatch(text)) return oldValue;
-
-    // If more than 2 digits, revert.
     if (text.length > 2) return oldValue;
-
-    // Parse the number.
     final day = int.tryParse(text);
-    if (day == null) return oldValue;
-
-    // Check range.
-    if (day < 1 || day > 31) {
-      return oldValue;
-    }
-
+    if (day == null || day < 1 || day > 31) return oldValue;
     return newValue;
   }
 }
@@ -83,7 +54,18 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
   final titleController = TextEditingController(text: initialTitle ?? '');
   String chosenIconName = initialIconName ?? "cross";
 
-  bool showDateFields = false; // Flag to show/hide the date fields
+  bool showDateFields = false;       // Flag to show/hide the start date fields
+  bool showSecondDateFields = false; // Flag to show/hide the end date fields
+
+  // Controllers for the first (start) date
+  final startMonthOrDayController = TextEditingController();
+  final startDayOrMonthController = TextEditingController();
+  final startYearController = TextEditingController();
+
+  // Controllers for the second (end) date
+  final endMonthOrDayController = TextEditingController();
+  final endDayOrMonthController = TextEditingController();
+  final endYearController = TextEditingController();
 
   return showDialog<Map<String, dynamic>?>(
     context: context,
@@ -102,9 +84,70 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
           final localeName = loc.localeName; 
           bool isUSLocale = localeName == 'en_US';
 
+          // Define the widths for the fields:
+          final double containerWidth = screenWidth * 0.5; 
+          final double smallFieldWidth = containerWidth * 0.1; // small width for month/day
+          final double yearFieldWidth = containerWidth * 0.15; // reduced width for year
+
+          // A helper to build a row of fields for a date
+          Widget buildDateFields({
+            required TextEditingController firstController,
+            required TextEditingController secondController,
+            required TextEditingController yearController,
+          }) {
+            return Row(
+              children: [
+                SizedBox(
+                  width: smallFieldWidth,
+                  child: TextField(
+                    controller: firstController,
+                    decoration: InputDecoration(
+                      hintText: isUSLocale ? 'MM' : 'DD',
+                      labelText: isUSLocale ? 'Month' : 'Day',
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: isUSLocale 
+                      ? [MonthInputFormatter()] // US: first field is month
+                      : [DayInputFormatter()],   // Non-US: first field is day
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: smallFieldWidth,
+                  child: TextField(
+                    controller: secondController,
+                    decoration: InputDecoration(
+                      hintText: isUSLocale ? 'DD' : 'MM',
+                      labelText: isUSLocale ? 'Day' : 'Month',
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: isUSLocale
+                      ? [DayInputFormatter()]   // US: second field is day
+                      : [MonthInputFormatter()], // Non-US: second field is month
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: yearFieldWidth,
+                  child: TextField(
+                    controller: yearController,
+                    decoration: const InputDecoration(
+                      hintText: 'YYYY',
+                      labelText: 'Year',
+                    ),
+                    keyboardType: TextInputType.text,
+                    inputFormatters: [
+                      YearInputFormatter(),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+
           return AlertDialog(
             content: SizedBox(
-              width: screenWidth * 0.5,
+              width: containerWidth,
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,47 +228,44 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                     if (showDateFields) ...[
                       const SizedBox(height: 16),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Expanded(
-                            child: TextField(
-                              decoration: InputDecoration(
-                                hintText: isUSLocale ? 'MM' : 'DD',
-                                labelText: isUSLocale ? 'Month' : 'Day',
-                              ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: isUSLocale 
-                                ? [MonthInputFormatter()] // US: first field is month
-                                : [DayInputFormatter()],   // Non-US: first field is day
-                            ),
+                          // Start date fields
+                          buildDateFields(
+                            firstController: startMonthOrDayController,
+                            secondController: startDayOrMonthController,
+                            yearController: startYearController,
                           ),
                           const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              decoration: InputDecoration(
-                                hintText: isUSLocale ? 'DD' : 'MM',
-                                labelText: isUSLocale ? 'Day' : 'Month',
+                          // Add a round button with plus icon
+                          InkWell(
+                            onTap: () {
+                              logger.i('Plus button clicked for interval');
+                              setState(() {
+                                showSecondDateFields = true;
+                              });
+                            },
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.blue,
                               ),
-                              keyboardType: TextInputType.number,
-                              inputFormatters: isUSLocale
-                                ? [DayInputFormatter()]   // US: second field is day
-                                : [MonthInputFormatter()], // Non-US: second field is month
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              decoration: const InputDecoration(
-                                hintText: 'YYYY',
-                                labelText: 'Year',
-                              ),
-                              keyboardType: TextInputType.text,
-                              inputFormatters: [
-                                YearInputFormatter(),
-                              ],
+                              child: const Icon(Icons.add, color: Colors.white, size: 20),
                             ),
                           ),
                         ],
                       ),
+                      if (showSecondDateFields) ...[
+                        const SizedBox(height: 16),
+                        // End date fields (interval)
+                        buildDateFields(
+                          firstController: endMonthOrDayController,
+                          secondController: endDayOrMonthController,
+                          yearController: endYearController,
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -236,6 +276,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                 child: const Text('Save'),
                 onPressed: () {
                   logger.i('Save pressed in initial form dialog. Returning quickSave=true');
+                  // Here you could retrieve the values from the controllers if needed
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
@@ -248,6 +289,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                 child: const Text('Continue'),
                 onPressed: () {
                   logger.i('Continue pressed in initial form dialog. Returning quickSave=false');
+                  // Retrieve values as needed if you want
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
