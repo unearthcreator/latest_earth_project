@@ -84,18 +84,17 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
           final localeName = loc.localeName; 
           bool isUSLocale = localeName == 'en_US';
 
-          // Define the widths for the fields:
           final double containerWidth = screenWidth * 0.5; 
           final double smallFieldWidth = containerWidth * 0.1; // small width for month/day
           final double yearFieldWidth = containerWidth * 0.15; // reduced width for year
 
-          // A helper to build a row of fields for a date
           Widget buildDateFields({
             required TextEditingController firstController,
             required TextEditingController secondController,
             required TextEditingController yearController,
           }) {
             return Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
                   width: smallFieldWidth,
@@ -227,8 +226,8 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                     ),
                     if (showDateFields) ...[
                       const SizedBox(height: 16),
+                      // Now we put everything in one Row: start date fields, plus button, and end date fields if visible
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Start date fields
                           buildDateFields(
@@ -237,7 +236,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                             yearController: startYearController,
                           ),
                           const SizedBox(width: 8),
-                          // Add a round button with plus icon
+                          // Plus button to add second date
                           InkWell(
                             onTap: () {
                               logger.i('Plus button clicked for interval');
@@ -255,17 +254,17 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                               child: const Icon(Icons.add, color: Colors.white, size: 20),
                             ),
                           ),
+                          if (showSecondDateFields) ...[
+                            const SizedBox(width: 8),
+                            // End date fields
+                            buildDateFields(
+                              firstController: endMonthOrDayController,
+                              secondController: endDayOrMonthController,
+                              yearController: endYearController,
+                            ),
+                          ],
                         ],
                       ),
-                      if (showSecondDateFields) ...[
-                        const SizedBox(height: 16),
-                        // End date fields (interval)
-                        buildDateFields(
-                          firstController: endMonthOrDayController,
-                          secondController: endDayOrMonthController,
-                          yearController: endYearController,
-                        ),
-                      ],
                     ],
                   ],
                 ),
@@ -276,7 +275,6 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                 child: const Text('Save'),
                 onPressed: () {
                   logger.i('Save pressed in initial form dialog. Returning quickSave=true');
-                  // Here you could retrieve the values from the controllers if needed
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
@@ -289,7 +287,6 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                 child: const Text('Continue'),
                 onPressed: () {
                   logger.i('Continue pressed in initial form dialog. Returning quickSave=false');
-                  // Retrieve values as needed if you want
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
