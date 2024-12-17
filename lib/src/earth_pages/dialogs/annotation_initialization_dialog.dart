@@ -8,14 +8,67 @@ class YearInputFormatter extends TextInputFormatter {
 
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    // Check if new input matches the pattern:
-    // Optional leading '-', followed by up to 4 digits.
     if (_yearRegex.hasMatch(newValue.text)) {
       return newValue;
     } else {
-      // If it doesn't match, revert to the old value.
       return oldValue;
     }
+  }
+}
+
+class MonthInputFormatter extends TextInputFormatter {
+  // Month should be 1-12.
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = newValue.text;
+
+    // Empty is allowed while typing.
+    if (text.isEmpty) return newValue;
+
+    // Only digits allowed.
+    if (!RegExp(r'^\d+$').hasMatch(text)) return oldValue;
+
+    // If more than 2 digits, revert.
+    if (text.length > 2) return oldValue;
+
+    // Parse the number.
+    final month = int.tryParse(text);
+    if (month == null) return oldValue;
+
+    // Check range.
+    if (month < 1 || month > 12) {
+      return oldValue;
+    }
+
+    return newValue;
+  }
+}
+
+class DayInputFormatter extends TextInputFormatter {
+  // Day should be 1-31.
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = newValue.text;
+
+    // Empty is allowed while typing.
+    if (text.isEmpty) return newValue;
+
+    // Only digits allowed.
+    if (!RegExp(r'^\d+$').hasMatch(text)) return oldValue;
+
+    // If more than 2 digits, revert.
+    if (text.length > 2) return oldValue;
+
+    // Parse the number.
+    final day = int.tryParse(text);
+    if (day == null) return oldValue;
+
+    // Check range.
+    if (day < 1 || day > 31) {
+      return oldValue;
+    }
+
+    return newValue;
   }
 }
 
@@ -30,7 +83,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
   final titleController = TextEditingController(text: initialTitle ?? '');
   String chosenIconName = initialIconName ?? "cross";
 
-  bool showDateFields = false; // New flag to show/hide the date fields
+  bool showDateFields = false; // Flag to show/hide the date fields
 
   return showDialog<Map<String, dynamic>?>(
     context: context,
@@ -124,7 +177,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                       onPressed: () {
                         logger.i('Add Date button clicked');
                         setState(() {
-                          showDateFields = true; // Show the date fields now
+                          showDateFields = true;
                         });
                       },
                       child: const Text('Add Date'),
@@ -140,6 +193,9 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                                 labelText: isUSLocale ? 'Month' : 'Day',
                               ),
                               keyboardType: TextInputType.number,
+                              inputFormatters: isUSLocale 
+                                ? [MonthInputFormatter()] // US: first field is month
+                                : [DayInputFormatter()],   // Non-US: first field is day
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -150,6 +206,9 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                                 labelText: isUSLocale ? 'Day' : 'Month',
                               ),
                               keyboardType: TextInputType.number,
+                              inputFormatters: isUSLocale
+                                ? [DayInputFormatter()]   // US: second field is day
+                                : [MonthInputFormatter()], // Non-US: second field is month
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -180,7 +239,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
-                    'date': '', // No date chosen yet
+                    'date': '', 
                     'quickSave': true,
                   });
                 },
@@ -192,7 +251,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
-                    'date': '', // No date chosen yet
+                    'date': '', 
                     'quickSave': false,
                   });
                 },
