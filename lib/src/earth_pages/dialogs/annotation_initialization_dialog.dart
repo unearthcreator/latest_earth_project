@@ -1,5 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
+import 'package:map_mvp_project/l10n/app_localizations.dart';
+
+class YearInputFormatter extends TextInputFormatter {
+  final RegExp _yearRegex = RegExp(r'^-?\d{0,4}$');
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    // Check if new input matches the pattern:
+    // Optional leading '-', followed by up to 4 digits.
+    if (_yearRegex.hasMatch(newValue.text)) {
+      return newValue;
+    } else {
+      // If it doesn't match, revert to the old value.
+      return oldValue;
+    }
+  }
+}
 
 Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
   BuildContext context, {
@@ -11,6 +29,8 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
   
   final titleController = TextEditingController(text: initialTitle ?? '');
   String chosenIconName = initialIconName ?? "cross";
+
+  bool showDateFields = false; // New flag to show/hide the date fields
 
   return showDialog<Map<String, dynamic>?>(
     context: context,
@@ -24,6 +44,10 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
             width: 32,
             height: 32,
           );
+
+          final loc = AppLocalizations.of(dialogContext)!;
+          final localeName = loc.localeName; 
+          bool isUSLocale = localeName == 'en_US';
 
           return AlertDialog(
             content: SizedBox(
@@ -96,15 +120,54 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // Removed the date label and text field
-                    // Replaced with a button
                     ElevatedButton(
                       onPressed: () {
                         logger.i('Add Date button clicked');
-                        // Future implementation: Open a date selection dialog here
+                        setState(() {
+                          showDateFields = true; // Show the date fields now
+                        });
                       },
                       child: const Text('Add Date'),
                     ),
+                    if (showDateFields) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: isUSLocale ? 'MM' : 'DD',
+                                labelText: isUSLocale ? 'Month' : 'Day',
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: isUSLocale ? 'DD' : 'MM',
+                                labelText: isUSLocale ? 'Day' : 'Month',
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              decoration: const InputDecoration(
+                                hintText: 'YYYY',
+                                labelText: 'Year',
+                              ),
+                              keyboardType: TextInputType.text,
+                              inputFormatters: [
+                                YearInputFormatter(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
