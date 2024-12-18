@@ -110,7 +110,6 @@ class EarthMapPageState extends State<EarthMapPage> {
         onDragEnd: _handleDragEnd,
         onAnnotationRemoved: _handleAnnotationRemoved,
         onConnectModeDisabled: () {
-          // When connect mode is disabled by the handler, also update UI state
           setState(() {
             _isConnectMode = false;
           });
@@ -209,22 +208,18 @@ class EarthMapPageState extends State<EarthMapPage> {
     }
 
     final annotations = await _localRepo.getAnnotations();
-    // Provide fallback values if not found
-    Annotation ann = annotations.firstWhere((a) => a.id == hiveId,
-        orElse: () => Annotation(id:'notFound'));
+    Annotation ann = annotations.firstWhere((a) => a.id == hiveId, orElse: () => Annotation(id:'notFound'));
 
     if (ann.id == 'notFound') {
       logger.w('Annotation not found in Hive.');
       return;
     }
 
-    // Extract fields from ann with fallbacks
     final title = ann.title ?? '';
     final startDate = ann.startDate ?? '';
     final note = ann.note ?? '';
     final iconName = ann.iconName ?? 'cross'; 
     IconData chosenIcon = Icons.star; 
-    // In reality you would map iconName to an IconData if needed.
 
     final result = await showAnnotationFormDialog(
       context,
@@ -240,14 +235,12 @@ class EarthMapPageState extends State<EarthMapPage> {
       final updatedFilePath = result['filePath'];
       logger.i('User edited note: $updatedNote, imagePath: $updatedImagePath, filePath: $updatedFilePath');
 
-      // Create a new Annotation with updated fields
-      // We must ensure latitude/longitude are not null. If they are null, fallback to 0.0
       final updatedAnnotation = Annotation(
         id: ann.id,
         title: title.isNotEmpty ? title : null,
         iconName: iconName.isNotEmpty ? iconName : null,
         startDate: startDate.isNotEmpty ? startDate : null,
-        endDate: ann.endDate, // keep existing endDate if any
+        endDate: ann.endDate,
         note: updatedNote.isNotEmpty ? updatedNote : null,
         latitude: ann.latitude ?? 0.0,
         longitude: ann.longitude ?? 0.0,
@@ -257,14 +250,11 @@ class EarthMapPageState extends State<EarthMapPage> {
       await _localRepo.updateAnnotation(updatedAnnotation);
       logger.i('Annotation updated in Hive with id: ${ann.id}');
 
-      // Recreate on map
       await _annotationsManager.removeAnnotation(_annotationMenuAnnotation!);
 
       final iconBytes = await rootBundle.load('assets/icons/${updatedAnnotation.iconName ?? 'cross'}.png');
       final imageData = iconBytes.buffer.asUint8List();
 
-      // For adding the annotation visually, we need a title and a date string. 
-      // If null, provide empty string.
       final mapAnnotation = await _annotationsManager.addAnnotation(
         Point(coordinates: Position(updatedAnnotation.longitude ?? 0.0, updatedAnnotation.latitude ?? 0.0)),
         image: imageData,
@@ -356,6 +346,23 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
+  Widget _buildTimelineButton() {
+    return Positioned(
+      top: 90, // Directly under the search button
+      left: 10, // Same left positioning as the search button
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(8),
+        ),
+        onPressed: () {
+          logger.i('Timeline button clicked (no functionality yet)');
+        },
+        child: const Icon(Icons.timeline),
+      ),
+    );
+  }
+
   Widget _buildClearAnnotationsButton() {
     return Positioned(
       top: 40,
@@ -426,8 +433,8 @@ class EarthMapPageState extends State<EarthMapPage> {
     if (!_showSearchBar) return const SizedBox.shrink();
 
     return Positioned(
-      top: 40,
-      left: 80,
+      top: 140, // Below search and timeline buttons
+      left: 10,
       width: 250,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,7 +479,6 @@ class EarthMapPageState extends State<EarthMapPage> {
                       final imageData = bytes.buffer.asUint8List();
 
                       final annotationId = uuid.v4();
-                      // Here we create a new Annotation with minimal fields
                       final annotation = Annotation(
                         id: annotationId,
                         title: streetPart.isNotEmpty ? streetPart : null,
@@ -550,7 +556,7 @@ class EarthMapPageState extends State<EarthMapPage> {
 
     return Positioned(
       top: 50,
-      left: (MediaQuery.of(context).size.width - 300) / 2, // Center the banner
+      left: (MediaQuery.of(context).size.width - 300) / 2,
       child: Container(
         width: 300,
         padding: const EdgeInsets.all(8),
@@ -571,7 +577,6 @@ class EarthMapPageState extends State<EarthMapPage> {
                 setState(() {
                   _isConnectMode = false; // Cancel connect mode
                 });
-                // Notify the gesture handler
                 _gestureHandler.disableConnectMode();
               },
               style: ElevatedButton.styleFrom(
@@ -598,11 +603,9 @@ class EarthMapPageState extends State<EarthMapPage> {
             onPressed: () {
               setState(() {
                 if (_isDragging) {
-                  // User clicked "Lock"
                   _gestureHandler.hideTrashCanAndStopDragging();
                   _isDragging = false;
                 } else {
-                  // User clicked "Move"
                   _gestureHandler.startDraggingSelectedAnnotation();
                   _isDragging = true;
                 }
@@ -638,7 +641,6 @@ class EarthMapPageState extends State<EarthMapPage> {
                 }
                 _isConnectMode = true;
               });
-              // Notify the gesture handler and pass the first annotation
               if (_annotationMenuAnnotation != null) {
                 _gestureHandler.enableConnectMode(_annotationMenuAnnotation!);
               } else {
@@ -654,7 +656,6 @@ class EarthMapPageState extends State<EarthMapPage> {
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: () {
-              // Close the menu without doing anything
               setState(() {
                 _showAnnotationMenu = false;
                 _annotationMenuAnnotation = null;
@@ -685,6 +686,7 @@ class EarthMapPageState extends State<EarthMapPage> {
                 _buildMapWidget(),
                 if (_isMapReady) _buildBackButton(),
                 if (_isMapReady) _buildSearchToggleButton(),
+                if (_isMapReady) _buildTimelineButton(),
                 if (_isMapReady) _buildClearAnnotationsButton(),
                 if (_isMapReady) _buildClearImagesButton(),
                 if (_isMapReady) _buildDeleteImagesFolderButton(),
