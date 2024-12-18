@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' as ui; // Import dart:ui as ui to differentiate from mapbox Size
+import 'dart:ui' as ui; // Import dart:ui as ui
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:flutter/services.dart'; // for rootBundle
@@ -346,8 +346,8 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   Widget _buildTimelineButton() {
     return Positioned(
-      top: 90, // Directly under the search button
-      left: 10, // Same left positioning as the search button
+      top: 90,
+      left: 10,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           shape: const CircleBorder(),
@@ -434,7 +434,7 @@ class EarthMapPageState extends State<EarthMapPage> {
     if (!_showSearchBar) return const SizedBox.shrink();
 
     return Positioned(
-      top: 140, 
+      top: 140,
       left: 10,
       width: 250,
       child: Column(
@@ -622,7 +622,6 @@ class EarthMapPageState extends State<EarthMapPage> {
           ElevatedButton(
             onPressed: () async {
               await _editAnnotation();
-              // menu stays visible
             },
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -679,7 +678,13 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   Widget _buildTimelineCanvas() {
     if (!_showTimelineCanvas) return const SizedBox.shrink();
-    return Positioned.fill(
+    // Approximately 1cm on sides and 0.5cm top/bottom
+    // Let's assume ~38 logical pixels for 1cm and ~19 for 0.5cm
+    return Positioned(
+      left: 38,
+      right: 38,
+      top: 19,
+      bottom: 19,
       child: IgnorePointer(
         ignoring: false,
         child: Container(
@@ -718,7 +723,7 @@ class EarthMapPageState extends State<EarthMapPage> {
 
 class _SimpleLinePainter extends CustomPainter {
   @override
-  void paint(Canvas canvas, ui.Size size) { // use ui.Size here
+  void paint(Canvas canvas, ui.Size size) {
     final bgPaint = Paint()..color = Colors.white;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
