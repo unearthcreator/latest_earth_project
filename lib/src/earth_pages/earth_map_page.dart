@@ -46,11 +46,11 @@ class EarthMapPageState extends State<EarthMapPage> {
   PointAnnotation? _annotationMenuAnnotation;
   Offset _annotationMenuOffset = Offset.zero;
 
-  bool _isDragging = false; // Are we in drag (move) mode?
+  bool _isDragging = false; 
   String get _annotationButtonText => _isDragging ? 'Lock' : 'Move';
 
-  bool _isConnectMode = false; // connect mode state
-  bool _showTimelineCanvas = false; // timeline canvas state
+  bool _isConnectMode = false; 
+  bool _showTimelineCanvas = false; 
 
   @override
   void initState() {
@@ -148,7 +148,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   void _handleDragEnd() {
-    // Drag ended - no special action
+    // no special action
   }
 
   void _handleAnnotationRemoved() {
@@ -678,11 +678,12 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   Widget _buildTimelineCanvas() {
     if (!_showTimelineCanvas) return const SizedBox.shrink();
-    // Approximately 1cm on sides and 0.5cm top/bottom
-    // Let's assume ~38 logical pixels for 1cm and ~19 for 0.5cm
+    // Previously 38 pixels per cm. Now add another cm: total left/right = 2cm each side
+    // That means 38 px/cm * 2 = 76 on each side
+    // top and bottom we had 0.5cm (19px), keep it the same
     return Positioned(
-      left: 38,
-      right: 38,
+      left: 76,
+      right: 76,
       top: 19,
       bottom: 19,
       child: IgnorePointer(
@@ -724,15 +725,11 @@ class EarthMapPageState extends State<EarthMapPage> {
 class _SimpleLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, ui.Size size) {
+    // White background only, no black line now
     final bgPaint = Paint()..color = Colors.white;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    final linePaint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 2.0;
-
-    final centerX = size.width / 2;
-    canvas.drawLine(Offset(centerX, 0), Offset(centerX, size.height), linePaint);
+    // Removed the line painting code
   }
 
   @override
