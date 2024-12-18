@@ -40,7 +40,7 @@ class MapGestureHandler {
   final DragEndCallback? onDragEnd;
   final AnnotationRemovedCallback? onAnnotationRemoved;
 
-  // New callback to notify when connect mode is disabled
+  // Callback to notify when connect mode is disabled
   VoidCallback? onConnectModeDisabled;
 
   Timer? _longPressTimer;
@@ -57,13 +57,12 @@ class MapGestureHandler {
   final Map<String, String> _annotationIdMap = {};
 
   String? _chosenTitle;
-  String? _chosenDate;
+  String? _chosenStartDate;
   String _chosenIconName = "mapbox-check"; // Default icon
   final uuid = Uuid();
 
-  // New state for connect mode
+  // Connect mode state
   bool _isConnectMode = false;
-  // Store the first annotation chosen in connect mode
   PointAnnotation? _firstConnectAnnotation;
 
   MapGestureHandler({
@@ -75,13 +74,12 @@ class MapGestureHandler {
     this.onAnnotationDragUpdate,
     this.onDragEnd,
     this.onAnnotationRemoved,
-    this.onConnectModeDisabled, // Add callback here
+    this.onConnectModeDisabled,
   }) : _trashCanHandler = TrashCanHandler(context: context) {
     annotationsManager.pointAnnotationManager.addOnPointAnnotationClickListener(
       MyPointAnnotationClickListener((clickedAnnotation) {
         logger.i('Annotation tapped: ${clickedAnnotation.id}');
 
-        // If we're in connect mode, handle differently
         if (_isConnectMode) {
           _handleConnectModeClick(clickedAnnotation);
         } else {
@@ -97,14 +95,12 @@ class MapGestureHandler {
     );
   }
 
-  // Enable connect mode and set the first annotation directly
   void enableConnectMode(PointAnnotation firstAnnotation) {
     logger.i('Connect mode enabled with first annotation: ${firstAnnotation.id}');
     _isConnectMode = true;
     _firstConnectAnnotation = firstAnnotation;
   }
 
-  // Disable connect mode and notify page if callback is present
   void disableConnectMode() {
     logger.i('Connect mode disabled.');
     _isConnectMode = false;
@@ -117,28 +113,24 @@ class MapGestureHandler {
 
   Future<void> _handleConnectModeClick(PointAnnotation clickedAnnotation) async {
     if (_firstConnectAnnotation == null) {
-      // Shouldn't happen if enableConnectMode was called with an annotation
       logger.w('First connect annotation was null, but connect mode was enabled!');
       _firstConnectAnnotation = clickedAnnotation;
       logger.i('First annotation chosen for connection (fallback): ${clickedAnnotation.id}');
     } else {
-      // We have a first annotation, now this is the second one
+      // Already have a first annotation, now this is the second one
       logger.i('Second annotation chosen for connection: ${clickedAnnotation.id}');
-      // TODO: Add logic here to draw a line between _firstConnectAnnotation and clickedAnnotation
+      // TODO: Implement logic to draw line
       logger.i('Would draw a line between ${_firstConnectAnnotation!.id} and ${clickedAnnotation.id}');
 
-      // After connecting, disable connect mode
       disableConnectMode();
     }
   }
 
   Future<void> _showAnnotationDetailsById(String id) async {
     final allAnnotations = await localAnnotationsRepository.getAnnotations();
-    Annotation? ann;
-    final found = allAnnotations.where((a) => a.id == id);
-    ann = found.isEmpty ? null : found.first;
+    final ann = allAnnotations.firstWhere((a) => a.id == id, orElse: () => Annotation(id:'notFound'));
 
-    if (ann != null) {
+    if (ann.id != 'notFound') {
       showAnnotationDetailsDialog(context, ann);
     } else {
       logger.w('No matching Hive annotation found for id: $id');
@@ -181,7 +173,6 @@ class MapGestureHandler {
           } catch (e) {
             logger.e('Error storing original point: $e');
           }
-          // Call onAnnotationLongPress so EarthMapPage can show the menu
           if (onAnnotationLongPress != null) {
             onAnnotationLongPress!(_selectedAnnotation!, _originalPoint!);
           }
@@ -210,7 +201,6 @@ class MapGestureHandler {
         logger.i('Updating annotation ${annotationToUpdate.id} position to $newPoint');
         await annotationsManager.updateVisualPosition(annotationToUpdate, newPoint);
 
-        // Notify EarthMapPage that drag updated
         if (onAnnotationDragUpdate != null) {
           onAnnotationDragUpdate!(annotationToUpdate);
         }
@@ -237,7 +227,6 @@ class MapGestureHandler {
       if (shouldRemove == true) {
         logger.i('User confirmed removal - removing annotation ${annotationToRemove.id}.');
         await annotationsManager.removeAnnotation(annotationToRemove);
-        // After successful removal, notify EarthMapPage
         if (onAnnotationRemoved != null) {
           onAnnotationRemoved!();
         }
@@ -295,17 +284,15 @@ class MapGestureHandler {
         final initialData = await showAnnotationInitializationDialog(context);
         logger.i('Initial form dialog returned: $initialData');
         if (initialData != null) {
-          _chosenTitle = initialData['title'] as String;
+          _chosenTitle = initialData['title'] as String?;
           _chosenIconName = initialData['icon'] as String;
-          _chosenDate = initialData['date'] as String;
+          _chosenStartDate = initialData['date'] as String?;
 
-          // Check if user wants a quickSave
           bool quickSave = initialData['quickSave'] == true;
 
-          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, date=$_chosenDate, quickSave=$quickSave.');
+          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, startDate=$_chosenStartDate, quickSave=$quickSave.');
 
           if (quickSave) {
-            // User wants to skip the second dialog and just create the annotation
             final note = '';
             final imagePath = null;
             final filePath = null;
@@ -319,8 +306,8 @@ class MapGestureHandler {
               final mapAnnotation = await annotationsManager.addAnnotation(
                 _longPressPoint!,
                 image: imageData,
-                title: _chosenTitle!,
-                date: _chosenDate!
+                title: _chosenTitle ?? '',
+                date: _chosenStartDate ?? ''
               );
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
@@ -331,10 +318,10 @@ class MapGestureHandler {
 
               final annotation = Annotation(
                 id: id,
-                title: _chosenTitle!,
-                iconName: _chosenIconName,
-                date: _chosenDate!,
-                note: note,
+                title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
+                iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
+                startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+                note: note.isNotEmpty ? note : null,
                 latitude: latitude,
                 longitude: longitude,
                 imagePath: imagePath,
@@ -347,13 +334,11 @@ class MapGestureHandler {
 
               final savedAnnotations = await localAnnotationsRepository.getAnnotations();
               logger.i('Annotations currently in Hive: $savedAnnotations');
-
             } else {
               logger.w('No long press point stored, cannot place annotation (quickSave).');
             }
-
           } else {
-            // Proceed with showing the second dialog (annotation_form_dialog)
+            // Proceed with second dialog (form dialog)
             await startFormDialogFlow();
           }
         } else {
@@ -369,10 +354,10 @@ class MapGestureHandler {
     logger.i('Showing annotation form dialog now.');
     final result = await showAnnotationFormDialog(
       context,
-      title: _chosenTitle!,
-      chosenIcon: Icons.star, // You can map _chosenIconName to a proper IconData if needed
+      title: _chosenTitle ?? '',
+      chosenIcon: Icons.star, // map _chosenIconName if needed
       chosenIconName: _chosenIconName,
-      date: _chosenDate!,
+      date: _chosenStartDate ?? '',
     );
     logger.i('Annotation form dialog returned: $result');
 
@@ -383,8 +368,7 @@ class MapGestureHandler {
         final changedIcon = result['icon'] ?? 'cross';
         final changedDate = result['date'] ?? '';
 
-        // Reopen the initialization dialog with the changed values
-        logger.i('User chose to change initial fields. Reopening initialization dialog with prefilled values.');
+        logger.i('User chose to change initial fields.');
         final secondInitResult = await showAnnotationInitializationDialog(
           context,
           initialTitle: changedTitle,
@@ -397,12 +381,11 @@ class MapGestureHandler {
         if (secondInitResult != null) {
           _chosenTitle = secondInitResult['title'] as String?;
           _chosenIconName = secondInitResult['icon'] as String;
-          _chosenDate = secondInitResult['date'] as String?;
+          _chosenStartDate = secondInitResult['date'] as String?;
 
           bool newQuickSave = secondInitResult['quickSave'] == true;
 
           if (newQuickSave) {
-            // Handle quick save logic again
             final note = '';
             final imagePath = null;
             final filePath = null;
@@ -416,8 +399,8 @@ class MapGestureHandler {
               final mapAnnotation = await annotationsManager.addAnnotation(
                 _longPressPoint!,
                 image: imageData,
-                title: _chosenTitle!,
-                date: _chosenDate!
+                title: _chosenTitle ?? '',
+                date: _chosenStartDate ?? ''
               );
 
               logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
@@ -428,10 +411,10 @@ class MapGestureHandler {
 
               final annotation = Annotation(
                 id: id,
-                title: _chosenTitle!,
-                iconName: _chosenIconName,
-                date: _chosenDate!,
-                note: note,
+                title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
+                iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
+                startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+                note: note.isNotEmpty ? note : null,
                 latitude: latitude,
                 longitude: longitude,
                 imagePath: imagePath,
@@ -444,26 +427,25 @@ class MapGestureHandler {
 
               final savedAnnotations = await localAnnotationsRepository.getAnnotations();
               logger.i('Annotations currently in Hive: $savedAnnotations');
-
             } else {
               logger.w('No long press point stored, cannot place annotation (quickSave after change).');
             }
           } else {
-            // User pressed Continue again after Change, show the form dialog again
-            await startFormDialogFlow(); // Run the form dialog flow again with updated values
+            // Show form dialog again with updated values
+            await startFormDialogFlow();
           }
         } else {
           logger.i('User cancelled after choosing change - no annotation added.');
         }
 
       } else {
-        // No action=change, means user either saved or cancelled the form dialog
+        // No action=change, user either saved or cancelled
         final note = result['note'] ?? '';
         final imagePath = result['imagePath'];
         final filePath = result['filePath'];
         logger.i('User entered note: $note, imagePath: $imagePath, filePath: $filePath');
 
-        if (_longPressPoint != null && note != null) {
+        if (_longPressPoint != null) {
           logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
 
           final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
@@ -472,8 +454,8 @@ class MapGestureHandler {
           final mapAnnotation = await annotationsManager.addAnnotation(
             _longPressPoint!,
             image: imageData,
-            title: _chosenTitle!,
-            date: _chosenDate!
+            title: _chosenTitle ?? '',
+            date: _chosenStartDate ?? ''
           );
 
           logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
@@ -484,13 +466,13 @@ class MapGestureHandler {
 
           final annotation = Annotation(
             id: id,
-            title: _chosenTitle!,
-            iconName: _chosenIconName,
-            date: _chosenDate!,
-            note: note,
+            title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
+            iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
+            startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+            note: note.isNotEmpty ? note : null,
             latitude: latitude,
             longitude: longitude,
-            imagePath: imagePath,
+            imagePath: (imagePath != null && imagePath.isNotEmpty) ? imagePath : null,
           );
 
           await localAnnotationsRepository.addAnnotation(annotation);

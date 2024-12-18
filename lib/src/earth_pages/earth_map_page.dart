@@ -202,7 +202,6 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   Future<void> _editAnnotation() async {
     if (_annotationMenuAnnotation == null) return;
-    final mapId = _annotationMenuAnnotation!.id;
     final hiveId = _gestureHandler.getHiveIdForAnnotation(_annotationMenuAnnotation!);
     if (hiveId == null) {
       logger.w('No hive ID found for this annotation.');
@@ -210,25 +209,29 @@ class EarthMapPageState extends State<EarthMapPage> {
     }
 
     final annotations = await _localRepo.getAnnotations();
+    // Provide fallback values if not found
     Annotation ann = annotations.firstWhere((a) => a.id == hiveId,
-        orElse: () => Annotation(id:'notFound', title:'', iconName:'cross', date:'', note:'', latitude:0.0, longitude:0.0));
+        orElse: () => Annotation(id:'notFound'));
 
     if (ann.id == 'notFound') {
       logger.w('Annotation not found in Hive.');
       return;
     }
 
-    final title = ann.title;
-    final date = ann.date;
-    final note = ann.note;
-    IconData chosenIcon = Icons.star; // Map ann.iconName if needed
+    // Extract fields from ann with fallbacks
+    final title = ann.title ?? '';
+    final startDate = ann.startDate ?? '';
+    final note = ann.note ?? '';
+    final iconName = ann.iconName ?? 'cross'; 
+    IconData chosenIcon = Icons.star; 
+    // In reality you would map iconName to an IconData if needed.
 
     final result = await showAnnotationFormDialog(
       context,
       title: title,
       chosenIcon: chosenIcon,
-      date: date,
-      note: note, // pass note here as the dialog supports note now
+      date: startDate,
+      note: note, 
     );
 
     if (result != null) {
@@ -237,15 +240,18 @@ class EarthMapPageState extends State<EarthMapPage> {
       final updatedFilePath = result['filePath'];
       logger.i('User edited note: $updatedNote, imagePath: $updatedImagePath, filePath: $updatedFilePath');
 
+      // Create a new Annotation with updated fields
+      // We must ensure latitude/longitude are not null. If they are null, fallback to 0.0
       final updatedAnnotation = Annotation(
         id: ann.id,
-        title: title, // If dialog can edit title/date, handle here
-        iconName: ann.iconName,
-        date: date,
-        note: updatedNote,
-        latitude: ann.latitude,
-        longitude: ann.longitude,
-        imagePath: updatedImagePath,
+        title: title.isNotEmpty ? title : null,
+        iconName: iconName.isNotEmpty ? iconName : null,
+        startDate: startDate.isNotEmpty ? startDate : null,
+        endDate: ann.endDate, // keep existing endDate if any
+        note: updatedNote.isNotEmpty ? updatedNote : null,
+        latitude: ann.latitude ?? 0.0,
+        longitude: ann.longitude ?? 0.0,
+        imagePath: (updatedImagePath != null && updatedImagePath.isNotEmpty) ? updatedImagePath : ann.imagePath,
       );
 
       await _localRepo.updateAnnotation(updatedAnnotation);
@@ -253,22 +259,23 @@ class EarthMapPageState extends State<EarthMapPage> {
 
       // Recreate on map
       await _annotationsManager.removeAnnotation(_annotationMenuAnnotation!);
-      final geometry = Point(coordinates: Position(updatedAnnotation.longitude, updatedAnnotation.latitude));
 
-      final bytes = await rootBundle.load('assets/icons/${updatedAnnotation.iconName}.png');
-      final imageData = bytes.buffer.asUint8List();
+      final iconBytes = await rootBundle.load('assets/icons/${updatedAnnotation.iconName ?? 'cross'}.png');
+      final imageData = iconBytes.buffer.asUint8List();
 
-      final newMapAnnotation = await _annotationsManager.addAnnotation(
-        geometry,
+      // For adding the annotation visually, we need a title and a date string. 
+      // If null, provide empty string.
+      final mapAnnotation = await _annotationsManager.addAnnotation(
+        Point(coordinates: Position(updatedAnnotation.longitude ?? 0.0, updatedAnnotation.latitude ?? 0.0)),
         image: imageData,
-        title: updatedAnnotation.title,
-        date: updatedAnnotation.date,
+        title: updatedAnnotation.title ?? '',
+        date: updatedAnnotation.startDate ?? '',
       );
 
-      _gestureHandler.registerAnnotationId(newMapAnnotation.id, updatedAnnotation.id);
+      _gestureHandler.registerAnnotationId(mapAnnotation.id, updatedAnnotation.id);
 
       setState(() {
-        _annotationMenuAnnotation = newMapAnnotation;
+        _annotationMenuAnnotation = mapAnnotation;
       });
 
       logger.i('Annotation visually updated on map.');
@@ -465,15 +472,17 @@ class EarthMapPageState extends State<EarthMapPage> {
                       final imageData = bytes.buffer.asUint8List();
 
                       final annotationId = uuid.v4();
+                      // Here we create a new Annotation with minimal fields
                       final annotation = Annotation(
                         id: annotationId,
-                        title: streetPart,
+                        title: streetPart.isNotEmpty ? streetPart : null,
                         iconName: "cross",
-                        date: "",
-                        note: "",
+                        startDate: null,
+                        note: null,
                         latitude: lat,
                         longitude: lng,
                         imagePath: null,
+                        endDate: null,
                       );
                       await _localRepo.addAnnotation(annotation);
                       logger.i('Searched annotation saved to Hive with id: $annotationId');
@@ -481,8 +490,8 @@ class EarthMapPageState extends State<EarthMapPage> {
                       final mapAnnotation = await _annotationsManager.addAnnotation(
                         geometry,
                         image: imageData,
-                        title: streetPart,
-                        date: "",
+                        title: annotation.title ?? '',
+                        date: annotation.startDate ?? '',
                       );
                       logger.i('Annotation placed at searched location.');
 

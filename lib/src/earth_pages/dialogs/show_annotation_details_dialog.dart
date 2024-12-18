@@ -18,16 +18,16 @@ Future<void> showAnnotationDetailsDialog(BuildContext context, Annotation annota
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Row with title and date
+                // Row with title and startDate
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      annotation.title,
+                      annotation.title ?? '',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
                     ),
                     Text(
-                      annotation.date,
+                      annotation.startDate ?? '',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -35,7 +35,9 @@ Future<void> showAnnotationDetailsDialog(BuildContext context, Annotation annota
                 const SizedBox(height: 16),
                 const Text('Note:', style: TextStyle(fontWeight: FontWeight.bold)),
                 Text(
-                  annotation.note.isNotEmpty ? annotation.note : 'No note provided',
+                  (annotation.note != null && annotation.note!.isNotEmpty) 
+                    ? annotation.note! 
+                    : 'No note provided',
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 16),

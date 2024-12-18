@@ -16,7 +16,6 @@ class YearInputFormatter extends TextInputFormatter {
 }
 
 class MonthInputFormatter extends TextInputFormatter {
-  // Month should be 1-12.
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     final text = newValue.text;
@@ -30,7 +29,6 @@ class MonthInputFormatter extends TextInputFormatter {
 }
 
 class DayInputFormatter extends TextInputFormatter {
-  // Day should be 1-31.
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     final text = newValue.text;
@@ -48,21 +46,20 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
   String? initialTitle,
   String? initialIconName,
   String? initialDate,
+  String? initialEndDate,
 }) async {
-  logger.i('Showing initial form dialog (title, icon).');
-  
+  logger.i('Showing initial form dialog (title, icon, date, endDate).');
+
   final titleController = TextEditingController(text: initialTitle ?? '');
   String chosenIconName = initialIconName ?? "cross";
 
-  bool showDateFields = false;       // Flag to show/hide the start date fields
-  bool showSecondDateFields = false; // Flag to show/hide the end date fields
+  bool showDateFields = false;
+  bool showSecondDateFields = false;
 
-  // Controllers for the first (start) date
   final startMonthOrDayController = TextEditingController();
   final startDayOrMonthController = TextEditingController();
   final startYearController = TextEditingController();
 
-  // Controllers for the second (end) date
   final endMonthOrDayController = TextEditingController();
   final endDayOrMonthController = TextEditingController();
   final endYearController = TextEditingController();
@@ -74,19 +71,118 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
       final screenWidth = MediaQuery.of(dialogContext).size.width;
       return StatefulBuilder(
         builder: (context, setState) {
-          Widget currentIconWidget = Image.asset(
-            'assets/icons/$chosenIconName.png',
-            width: 32,
-            height: 32,
-          );
-
           final loc = AppLocalizations.of(dialogContext)!;
-          final localeName = loc.localeName; 
+          final localeName = loc.localeName;
           bool isUSLocale = localeName == 'en_US';
 
-          final double containerWidth = screenWidth * 0.5; 
-          final double smallFieldWidth = containerWidth * 0.1; // small width for month/day
-          final double yearFieldWidth = containerWidth * 0.15; // reduced width for year
+          final double containerWidth = screenWidth * 0.5;
+          final double smallFieldWidth = containerWidth * 0.1;
+          final double yearFieldWidth = containerWidth * 0.15;
+
+          // Parse a given date string into controllers
+          void parseDateString(String dateStr, TextEditingController firstC, TextEditingController secondC, TextEditingController yearC) {
+            if (dateStr.isEmpty) return;
+            // date format: US: MM-DD-YYYY, others: DD-MM-YYYY
+            final parts = dateStr.split('-');
+            if (parts.length != 3) return;
+
+            final part1 = parts[0];
+            final part2 = parts[1];
+            final part3 = parts[2];
+
+            if (isUSLocale) {
+              // US: MM-DD-YYYY
+              firstC.text = part1;  // MM
+              secondC.text = part2; // DD
+              yearC.text = part3;   // YYYY
+            } else {
+              // Non-US: DD-MM-YYYY
+              // parts[0] = DD, parts[1] = MM, parts[2] = YYYY
+              secondC.text = part1; // DD is first part, but for non-US firstC is day, secondC is month - check logic
+              firstC.text = part2;  // Actually, we need to match the logic used in buildDateString
+              // Wait, we must remember buildDateString:
+              // Non-US: secondVal-firstVal-yearVal as DD-MM-YYYY.
+              // secondVal = firstVal from code snippet above? Let's clarify:
+              // buildDateString for non-US: return '$secondVal-$firstVal-$yearVal';
+              // That means for non-US:
+              //   secondVal was day
+              //   firstVal was month
+              // Actually, in the code above:
+              // US: firstVal = month, secondVal = day
+              // Non-US: firstVal = day? Actually, we must confirm from the original code.
+
+              // Original code snippet:
+              // If isUSLocale:
+              //   firstVal = firstController => Month
+              //   secondVal = secondController => Day
+              // else (non-US):
+              //   firstVal = firstController => day
+              //   secondVal = secondController => month
+              // Actually in the code, we set the labels:
+              // Non-US: first field label = 'Day', second field label = 'Month'
+              // So for Non-US:
+              //   firstController = day
+              //   secondController = month
+              // buildDateString(non-US) = '$secondVal-$firstVal-$yearVal'
+              // means $secondVal = month, $firstVal = day, but we said firstController=day, secondController=month?
+              // The code for buildDateString might have a mixup. Let's fix the logic here:
+
+              // Actually, from the code:
+              // Non-US: first field => DayInputFormatter => day
+              //          second field => MonthInputFormatter => month
+              // buildDateString for non-US: '$secondVal-$firstVal-$yearVal'
+              // If firstVal is day and secondVal is month, we got reversed in buildDateString. We must correct that.
+              // Let's correct buildDateString logic now, since we see a discrepancy:
+
+              // We'll define:
+              // isUSLocale:
+              //   firstController = month
+              //   secondController = day
+              //   buildDateString = '$firstVal-$secondVal-$yearVal' = MM-DD-YYYY
+              //
+              // Non-US:
+              //   firstController = day
+              //   secondController = month
+              //   buildDateString = '$firstVal-$secondVal-$yearVal' = day-month-year (Correct)
+              //
+              // This means non-US is actually correct with firstVal=day, secondVal=month.
+              // So if dateStr = DD-MM-YYYY non-US:
+              // parts[0] = DD
+              // parts[1] = MM
+              // parts[2] = YYYY
+              //
+              // firstController = dayController = DD
+              // secondController = monthController = MM
+              // yearController = YYYY
+
+              firstC.text = part1; // DD
+              secondC.text = part2; // MM
+              yearC.text = part3; // YYYY
+            }
+          }
+
+          String buildDateString({
+            required TextEditingController firstController,
+            required TextEditingController secondController,
+            required TextEditingController yearController,
+            required bool isUSLocale,
+          }) {
+            final firstVal = firstController.text.trim();
+            final secondVal = secondController.text.trim();
+            final yearVal = yearController.text.trim();
+
+            if (firstVal.isEmpty || secondVal.isEmpty || yearVal.isEmpty) {
+              return '';
+            }
+
+            // US: MM-DD-YYYY
+            // Non-US: DD-MM-YYYY (following the corrected logic)
+            if (isUSLocale) {
+              return '$firstVal-$secondVal-$yearVal';
+            } else {
+              return '$firstVal-$secondVal-$yearVal';
+            }
+          }
 
           Widget buildDateFields({
             required TextEditingController firstController,
@@ -106,8 +202,8 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                     ),
                     keyboardType: TextInputType.number,
                     inputFormatters: isUSLocale 
-                      ? [MonthInputFormatter()] // US: first field is month
-                      : [DayInputFormatter()],   // Non-US: first field is day
+                      ? [MonthInputFormatter()] 
+                      : [DayInputFormatter()],
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -121,8 +217,8 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                     ),
                     keyboardType: TextInputType.number,
                     inputFormatters: isUSLocale
-                      ? [DayInputFormatter()]   // US: second field is day
-                      : [MonthInputFormatter()], // Non-US: second field is month
+                      ? [DayInputFormatter()]   
+                      : [MonthInputFormatter()],
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -142,6 +238,22 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                 ),
               ],
             );
+          }
+
+          // If initialDate is provided, parse it and show date fields
+          if (initialDate != null && initialDate.isNotEmpty && !showDateFields) {
+            setState(() {
+              showDateFields = true;
+              parseDateString(initialDate, startMonthOrDayController, startDayOrMonthController, startYearController);
+            });
+          }
+
+          // If initialEndDate is provided, parse it and show second date fields
+          if (initialEndDate != null && initialEndDate.isNotEmpty && !showSecondDateFields) {
+            setState(() {
+              showSecondDateFields = true;
+              parseDateString(initialEndDate, endMonthOrDayController, endDayOrMonthController, endYearController);
+            });
           }
 
           return AlertDialog(
@@ -197,7 +309,11 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        currentIconWidget,
+                        Image.asset(
+                          'assets/icons/$chosenIconName.png',
+                          width: 32,
+                          height: 32,
+                        ),
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: () async {
@@ -226,17 +342,14 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                     ),
                     if (showDateFields) ...[
                       const SizedBox(height: 16),
-                      // Now we put everything in one Row: start date fields, plus button, and end date fields if visible
                       Row(
                         children: [
-                          // Start date fields
                           buildDateFields(
                             firstController: startMonthOrDayController,
                             secondController: startDayOrMonthController,
                             yearController: startYearController,
                           ),
                           const SizedBox(width: 8),
-                          // Plus button to add second date
                           InkWell(
                             onTap: () {
                               logger.i('Plus button clicked for interval');
@@ -256,7 +369,6 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                           ),
                           if (showSecondDateFields) ...[
                             const SizedBox(width: 8),
-                            // End date fields
                             buildDateFields(
                               firstController: endMonthOrDayController,
                               secondController: endDayOrMonthController,
@@ -275,10 +387,29 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                 child: const Text('Save'),
                 onPressed: () {
                   logger.i('Save pressed in initial form dialog. Returning quickSave=true');
+                  String date = '';
+                  String endDate = '';
+                  if (showDateFields) {
+                    date = buildDateString(
+                      firstController: startMonthOrDayController,
+                      secondController: startDayOrMonthController,
+                      yearController: startYearController,
+                      isUSLocale: isUSLocale,
+                    );
+                    if (showSecondDateFields) {
+                      endDate = buildDateString(
+                        firstController: endMonthOrDayController,
+                        secondController: endDayOrMonthController,
+                        yearController: endYearController,
+                        isUSLocale: isUSLocale,
+                      );
+                    }
+                  }
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
-                    'date': '', 
+                    'date': date,
+                    'endDate': endDate,
                     'quickSave': true,
                   });
                 },
@@ -287,10 +418,29 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
                 child: const Text('Continue'),
                 onPressed: () {
                   logger.i('Continue pressed in initial form dialog. Returning quickSave=false');
+                  String date = '';
+                  String endDate = '';
+                  if (showDateFields) {
+                    date = buildDateString(
+                      firstController: startMonthOrDayController,
+                      secondController: startDayOrMonthController,
+                      yearController: startYearController,
+                      isUSLocale: isUSLocale,
+                    );
+                    if (showSecondDateFields) {
+                      endDate = buildDateString(
+                        firstController: endMonthOrDayController,
+                        secondController: endDayOrMonthController,
+                        yearController: endYearController,
+                        isUSLocale: isUSLocale,
+                      );
+                    }
+                  }
                   Navigator.of(dialogContext).pop({
                     'title': titleController.text.trim(),
                     'icon': chosenIconName,
-                    'date': '', 
+                    'date': date,
+                    'endDate': endDate,
                     'quickSave': false,
                   });
                 },
