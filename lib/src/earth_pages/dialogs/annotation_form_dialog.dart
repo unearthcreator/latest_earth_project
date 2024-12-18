@@ -10,15 +10,35 @@ Future<Map<String, String>?> showAnnotationFormDialog(
   BuildContext context, {
   required String title,
   required IconData chosenIcon,
-  String chosenIconName = '', // Optional, defaults to empty string
+  String chosenIconName = '', // optional
   required String date,
-  String note = '', // note is optional with a default empty string
+  String endDate = '', // Add endDate as an optional parameter
+  String note = '',
 }) async {
   logger.i('Showing annotation form dialog (icon, title, date, note).');
+
   final noteController = TextEditingController(text: note);
 
   String? selectedImagePath;
-  String? selectedFilePath; // For the chosen file (PDF, DOC, etc.)
+  String? selectedFilePath;
+
+  // A helper function to replace dashes with slashes in date strings
+  String formatDateSlash(String d) {
+    if (d.isEmpty) return '';
+    // d is currently something like "MM-DD-YYYY" or "DD-MM-YYYY"
+    // Just replace '-' with '/'
+    return d.replaceAll('-', '/');
+  }
+
+  // Format the date display:
+  String displayDate = '';
+  final formattedStart = formatDateSlash(date);
+  final formattedEnd = formatDateSlash(endDate);
+  if (formattedStart.isNotEmpty && formattedEnd.isNotEmpty) {
+    displayDate = '$formattedStart - $formattedEnd';
+  } else if (formattedStart.isNotEmpty) {
+    displayDate = formattedStart;
+  }
 
   return showDialog<Map<String, String>?>(
     context: context,
@@ -35,7 +55,7 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Row with icon (left), title (center), and date (right)
+                    // Row with icon, title, and date
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -45,24 +65,22 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
                         ),
                         Text(
-                          date,
+                          displayDate,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // "Change" button centered beneath title and above the note
                     Center(
                       child: ElevatedButton(
                         onPressed: () {
                           logger.i('User pressed the "Change" button.');
-                          // Instead of reopening the initialization dialog here,
-                          // just return an action "change" to the caller.
                           Navigator.of(dialogContext).pop({
                             'action': 'change',
                             'title': title,
                             'icon': chosenIconName,
                             'date': date,
+                            'endDate': endDate, // pass the endDate back as well
                           });
                         },
                         child: const Text('Change'),
@@ -72,13 +90,10 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                     const Text('Note:', style: TextStyle(fontWeight: FontWeight.bold)),
                     TextField(
                       controller: noteController,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter note',
-                      ),
+                      decoration: const InputDecoration(hintText: 'Enter note'),
                       maxLines: 4,
                     ),
                     const SizedBox(height: 16),
-                    // Buttons for image and camera
                     Row(
                       children: [
                         ElevatedButton(
@@ -86,7 +101,6 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                             final picker = ImagePicker();
                             final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
                             if (pickedFile != null) {
-                              // Copy the image into the app's internal storage
                               final appDir = await getApplicationDocumentsDirectory();
                               final imagesDir = Directory(p.join(appDir.path, 'images'));
 
@@ -96,11 +110,10 @@ Future<Map<String, String>?> showAnnotationFormDialog(
 
                               final fileName = p.basename(pickedFile.path);
                               final newPath = p.join(imagesDir.path, fileName);
-
                               await File(pickedFile.path).copy(newPath);
 
                               setState(() {
-                                selectedImagePath = newPath; // Use the internal copy now
+                                selectedImagePath = newPath;
                               });
 
                               logger.i('User selected and copied image to: $selectedImagePath');
@@ -114,8 +127,7 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                         ElevatedButton(
                           onPressed: () {
                             logger.i('Camera button clicked');
-                            // Future implementation:
-                            // Integrate camera plugin or custom camera screen
+                            // Future: Integrate camera
                           },
                           child: const Text('Open Camera'),
                         ),
@@ -138,7 +150,6 @@ Future<Map<String, String>?> showAnnotationFormDialog(
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () async {
-                        // Pick a file (PDF, DOC, etc.)
                         final result = await FilePicker.platform.pickFiles();
                         if (result != null && result.files.isNotEmpty) {
                           final pickedFilePath = result.files.single.path;

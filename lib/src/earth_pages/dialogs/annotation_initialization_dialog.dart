@@ -79,10 +79,8 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
           final double smallFieldWidth = containerWidth * 0.1;
           final double yearFieldWidth = containerWidth * 0.15;
 
-          // Parse a given date string into controllers
           void parseDateString(String dateStr, TextEditingController firstC, TextEditingController secondC, TextEditingController yearC) {
             if (dateStr.isEmpty) return;
-            // date format: US: MM-DD-YYYY, others: DD-MM-YYYY
             final parts = dateStr.split('-');
             if (parts.length != 3) return;
 
@@ -90,74 +88,19 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
             final part2 = parts[1];
             final part3 = parts[2];
 
+            // For US: MM-DD-YYYY
+            // For non-US: DD-MM-YYYY
             if (isUSLocale) {
-              // US: MM-DD-YYYY
-              firstC.text = part1;  // MM
-              secondC.text = part2; // DD
-              yearC.text = part3;   // YYYY
+              // US: part1=MM, part2=DD, part3=YYYY
+              firstC.text = part1; 
+              secondC.text = part2;
+              yearC.text = part3;
             } else {
-              // Non-US: DD-MM-YYYY
-              // parts[0] = DD, parts[1] = MM, parts[2] = YYYY
-              secondC.text = part1; // DD is first part, but for non-US firstC is day, secondC is month - check logic
-              firstC.text = part2;  // Actually, we need to match the logic used in buildDateString
-              // Wait, we must remember buildDateString:
-              // Non-US: secondVal-firstVal-yearVal as DD-MM-YYYY.
-              // secondVal = firstVal from code snippet above? Let's clarify:
-              // buildDateString for non-US: return '$secondVal-$firstVal-$yearVal';
-              // That means for non-US:
-              //   secondVal was day
-              //   firstVal was month
-              // Actually, in the code above:
-              // US: firstVal = month, secondVal = day
-              // Non-US: firstVal = day? Actually, we must confirm from the original code.
-
-              // Original code snippet:
-              // If isUSLocale:
-              //   firstVal = firstController => Month
-              //   secondVal = secondController => Day
-              // else (non-US):
-              //   firstVal = firstController => day
-              //   secondVal = secondController => month
-              // Actually in the code, we set the labels:
-              // Non-US: first field label = 'Day', second field label = 'Month'
-              // So for Non-US:
-              //   firstController = day
-              //   secondController = month
-              // buildDateString(non-US) = '$secondVal-$firstVal-$yearVal'
-              // means $secondVal = month, $firstVal = day, but we said firstController=day, secondController=month?
-              // The code for buildDateString might have a mixup. Let's fix the logic here:
-
-              // Actually, from the code:
-              // Non-US: first field => DayInputFormatter => day
-              //          second field => MonthInputFormatter => month
-              // buildDateString for non-US: '$secondVal-$firstVal-$yearVal'
-              // If firstVal is day and secondVal is month, we got reversed in buildDateString. We must correct that.
-              // Let's correct buildDateString logic now, since we see a discrepancy:
-
-              // We'll define:
-              // isUSLocale:
-              //   firstController = month
-              //   secondController = day
-              //   buildDateString = '$firstVal-$secondVal-$yearVal' = MM-DD-YYYY
-              //
-              // Non-US:
-              //   firstController = day
-              //   secondController = month
-              //   buildDateString = '$firstVal-$secondVal-$yearVal' = day-month-year (Correct)
-              //
-              // This means non-US is actually correct with firstVal=day, secondVal=month.
-              // So if dateStr = DD-MM-YYYY non-US:
-              // parts[0] = DD
-              // parts[1] = MM
-              // parts[2] = YYYY
-              //
-              // firstController = dayController = DD
-              // secondController = monthController = MM
-              // yearController = YYYY
-
-              firstC.text = part1; // DD
-              secondC.text = part2; // MM
-              yearC.text = part3; // YYYY
+              // Non-US: part1=DD, part2=MM, part3=YYYY
+              // firstController=day, secondController=month in non-US
+              firstC.text = part1;  // Day
+              secondC.text = part2; // Month
+              yearC.text = part3;   // Year
             }
           }
 
@@ -176,7 +119,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
             }
 
             // US: MM-DD-YYYY
-            // Non-US: DD-MM-YYYY (following the corrected logic)
+            // Non-US: DD-MM-YYYY
             if (isUSLocale) {
               return '$firstVal-$secondVal-$yearVal';
             } else {
@@ -240,7 +183,7 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
             );
           }
 
-          // If initialDate is provided, parse it and show date fields
+          // If initial date provided, parse and show
           if (initialDate != null && initialDate.isNotEmpty && !showDateFields) {
             setState(() {
               showDateFields = true;
@@ -248,9 +191,10 @@ Future<Map<String, dynamic>?> showAnnotationInitializationDialog(
             });
           }
 
-          // If initialEndDate is provided, parse it and show second date fields
+          // If initial end date provided, parse and show second date fields
           if (initialEndDate != null && initialEndDate.isNotEmpty && !showSecondDateFields) {
             setState(() {
+              showDateFields = true; // end date implies also start date fields shown
               showSecondDateFields = true;
               parseDateString(initialEndDate, endMonthOrDayController, endDayOrMonthController, endYearController);
             });

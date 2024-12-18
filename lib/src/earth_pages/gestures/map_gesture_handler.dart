@@ -58,6 +58,7 @@ class MapGestureHandler {
 
   String? _chosenTitle;
   String? _chosenStartDate;
+  String? _chosenEndDate; // New variable for endDate
   String _chosenIconName = "mapbox-check"; // Default icon
   final uuid = Uuid();
 
@@ -79,7 +80,6 @@ class MapGestureHandler {
     annotationsManager.pointAnnotationManager.addOnPointAnnotationClickListener(
       MyPointAnnotationClickListener((clickedAnnotation) {
         logger.i('Annotation tapped: ${clickedAnnotation.id}');
-
         if (_isConnectMode) {
           _handleConnectModeClick(clickedAnnotation);
         } else {
@@ -105,7 +105,6 @@ class MapGestureHandler {
     logger.i('Connect mode disabled.');
     _isConnectMode = false;
     _firstConnectAnnotation = null;
-
     if (onConnectModeDisabled != null) {
       onConnectModeDisabled!();
     }
@@ -121,7 +120,6 @@ class MapGestureHandler {
       logger.i('Second annotation chosen for connection: ${clickedAnnotation.id}');
       // TODO: Implement logic to draw line
       logger.i('Would draw a line between ${_firstConnectAnnotation!.id} and ${clickedAnnotation.id}');
-
       disableConnectMode();
     }
   }
@@ -129,7 +127,6 @@ class MapGestureHandler {
   Future<void> _showAnnotationDetailsById(String id) async {
     final allAnnotations = await localAnnotationsRepository.getAnnotations();
     final ann = allAnnotations.firstWhere((a) => a.id == id, orElse: () => Annotation(id:'notFound'));
-
     if (ann.id != 'notFound') {
       showAnnotationDetailsDialog(context, ann);
     } else {
@@ -187,7 +184,6 @@ class MapGestureHandler {
 
   Future<void> handleDrag(ScreenCoordinate screenPoint) async {
     if (!_isDragging || _selectedAnnotation == null) return;
-
     final annotationToUpdate = _selectedAnnotation;
     if (annotationToUpdate == null || _isProcessingDrag) return;
 
@@ -195,12 +191,10 @@ class MapGestureHandler {
       _isProcessingDrag = true;
       _lastDragScreenPoint = screenPoint;
       final newPoint = await mapboxMap.coordinateForPixel(screenPoint);
-
       if (!_isDragging || _selectedAnnotation == null) return;
       if (newPoint != null) {
         logger.i('Updating annotation ${annotationToUpdate.id} position to $newPoint');
         await annotationsManager.updateVisualPosition(annotationToUpdate, newPoint);
-
         if (onAnnotationDragUpdate != null) {
           onAnnotationDragUpdate!(annotationToUpdate);
         }
@@ -223,7 +217,6 @@ class MapGestureHandler {
 
       logger.i('Annotation ${annotationToRemove.id} dropped over trash can. Showing removal dialog.');
       final shouldRemove = await _showRemoveConfirmationDialog();
-
       if (shouldRemove == true) {
         logger.i('User confirmed removal - removing annotation ${annotationToRemove.id}.');
         await annotationsManager.removeAnnotation(annotationToRemove);
@@ -287,10 +280,11 @@ class MapGestureHandler {
           _chosenTitle = initialData['title'] as String?;
           _chosenIconName = initialData['icon'] as String;
           _chosenStartDate = initialData['date'] as String?;
+          _chosenEndDate = initialData['endDate'] as String?; // Retrieve endDate as well
 
           bool quickSave = initialData['quickSave'] == true;
 
-          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, startDate=$_chosenStartDate, quickSave=$quickSave.');
+          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, startDate=$_chosenStartDate, endDate=$_chosenEndDate, quickSave=$quickSave.');
 
           if (quickSave) {
             final note = '';
@@ -321,6 +315,7 @@ class MapGestureHandler {
                 title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
                 iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
                 startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+                endDate: _chosenEndDate?.isNotEmpty == true ? _chosenEndDate : null, // Save endDate
                 note: note.isNotEmpty ? note : null,
                 latitude: latitude,
                 longitude: longitude,
@@ -351,14 +346,15 @@ class MapGestureHandler {
   }
 
   Future<void> startFormDialogFlow() async {
-    logger.i('Showing annotation form dialog now.');
-    final result = await showAnnotationFormDialog(
-      context,
-      title: _chosenTitle ?? '',
-      chosenIcon: Icons.star, // map _chosenIconName if needed
-      chosenIconName: _chosenIconName,
-      date: _chosenStartDate ?? '',
-    );
+  logger.i('Showing annotation form dialog now.');
+  final result = await showAnnotationFormDialog(
+    context,
+    title: _chosenTitle ?? '',
+    chosenIcon: Icons.star, // map _chosenIconName if needed
+    chosenIconName: _chosenIconName,
+    date: _chosenStartDate ?? '',
+    endDate: _chosenEndDate ?? '', // Pass the endDate here as well
+  );
     logger.i('Annotation form dialog returned: $result');
 
     if (result != null) {
@@ -366,14 +362,16 @@ class MapGestureHandler {
         // User wants to modify initial fields
         final changedTitle = result['title'] ?? '';
         final changedIcon = result['icon'] ?? 'cross';
-        final changedDate = result['date'] ?? '';
+        final changedStartDate = result['date'] ?? '';
+        final changedEndDate = result['endDate'] ?? ''; // retrieve endDate from form if available
 
         logger.i('User chose to change initial fields.');
         final secondInitResult = await showAnnotationInitializationDialog(
           context,
           initialTitle: changedTitle,
           initialIconName: changedIcon,
-          initialDate: changedDate,
+          initialDate: changedStartDate,
+          initialEndDate: changedEndDate, // pass initialEndDate if needed
         );
 
         logger.i('Second initialization dialog returned: $secondInitResult');
@@ -382,6 +380,7 @@ class MapGestureHandler {
           _chosenTitle = secondInitResult['title'] as String?;
           _chosenIconName = secondInitResult['icon'] as String;
           _chosenStartDate = secondInitResult['date'] as String?;
+          _chosenEndDate = secondInitResult['endDate'] as String?;
 
           bool newQuickSave = secondInitResult['quickSave'] == true;
 
@@ -414,6 +413,7 @@ class MapGestureHandler {
                 title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
                 iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
                 startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+                endDate: _chosenEndDate?.isNotEmpty == true ? _chosenEndDate : null, // save endDate here too
                 note: note.isNotEmpty ? note : null,
                 latitude: latitude,
                 longitude: longitude,
@@ -443,6 +443,8 @@ class MapGestureHandler {
         final note = result['note'] ?? '';
         final imagePath = result['imagePath'];
         final filePath = result['filePath'];
+        final endDate = result['endDate'] ?? ''; // retrieve endDate from result if available
+
         logger.i('User entered note: $note, imagePath: $imagePath, filePath: $filePath');
 
         if (_longPressPoint != null) {
@@ -469,6 +471,7 @@ class MapGestureHandler {
             title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
             iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
             startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+            endDate: endDate.isNotEmpty ? endDate : null, // save endDate here
             note: note.isNotEmpty ? note : null,
             latitude: latitude,
             longitude: longitude,
