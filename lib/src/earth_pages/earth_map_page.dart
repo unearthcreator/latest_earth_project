@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui; // Import dart:ui as ui to differentiate from mapbox Size
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:flutter/services.dart'; // for rootBundle
@@ -8,16 +9,13 @@ import 'package:map_mvp_project/repositories/local_annotations_repository.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/annotations/map_annotations_manager.dart';
 import 'package:map_mvp_project/src/earth_pages/gestures/map_gesture_handler.dart';
-import 'package:map_mvp_project/src/earth_pages/utils/trash_can_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-
 import 'package:map_mvp_project/services/geocoding_service.dart';
 import 'package:uuid/uuid.dart'; // for generating unique IDs
 import 'package:map_mvp_project/models/annotation.dart'; // for Annotation model
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
-import 'package:map_mvp_project/src/earth_pages/dialogs/show_annotation_details_dialog.dart';
 
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
@@ -51,8 +49,8 @@ class EarthMapPageState extends State<EarthMapPage> {
   bool _isDragging = false; // Are we in drag (move) mode?
   String get _annotationButtonText => _isDragging ? 'Lock' : 'Move';
 
-  // New state for connect mode
-  bool _isConnectMode = false;
+  bool _isConnectMode = false; // connect mode state
+  bool _showTimelineCanvas = false; // timeline canvas state
 
   @override
   void initState() {
@@ -356,7 +354,10 @@ class EarthMapPageState extends State<EarthMapPage> {
           padding: const EdgeInsets.all(8),
         ),
         onPressed: () {
-          logger.i('Timeline button clicked (no functionality yet)');
+          logger.i('Timeline button clicked');
+          setState(() {
+            _showTimelineCanvas = !_showTimelineCanvas;
+          });
         },
         child: const Icon(Icons.timeline),
       ),
@@ -433,7 +434,7 @@ class EarthMapPageState extends State<EarthMapPage> {
     if (!_showSearchBar) return const SizedBox.shrink();
 
     return Positioned(
-      top: 140, // Below search and timeline buttons
+      top: 140, 
       left: 10,
       width: 250,
       child: Column(
@@ -575,7 +576,7 @@ class EarthMapPageState extends State<EarthMapPage> {
             ElevatedButton(
               onPressed: () {
                 setState(() {
-                  _isConnectMode = false; // Cancel connect mode
+                  _isConnectMode = false;
                 });
                 _gestureHandler.disableConnectMode();
               },
@@ -676,6 +677,21 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
+  Widget _buildTimelineCanvas() {
+    if (!_showTimelineCanvas) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: false,
+        child: Container(
+          color: Colors.white.withOpacity(0.9),
+          child: CustomPaint(
+            painter: _SimpleLinePainter(),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -693,8 +709,29 @@ class EarthMapPageState extends State<EarthMapPage> {
                 if (_isMapReady) _buildAddressSearchWidget(),
                 if (_isMapReady) _buildAnnotationMenu(),
                 if (_isMapReady) _buildConnectModeBanner(),
+                if (_isMapReady) _buildTimelineCanvas(),
               ],
             ),
     );
+  }
+}
+
+class _SimpleLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, ui.Size size) { // use ui.Size here
+    final bgPaint = Paint()..color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+
+    final linePaint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 2.0;
+
+    final centerX = size.width / 2;
+    canvas.drawLine(Offset(centerX, 0), Offset(centerX, size.height), linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }
