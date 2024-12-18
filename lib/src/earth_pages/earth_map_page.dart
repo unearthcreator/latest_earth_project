@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' as ui; // Import dart:ui as ui
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:flutter/services.dart'; // for rootBundle
@@ -13,9 +12,11 @@ import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:map_mvp_project/services/geocoding_service.dart';
-import 'package:uuid/uuid.dart'; // for generating unique IDs
+import 'package:uuid/uuid.dart'; // for unique IDs
 import 'package:map_mvp_project/models/annotation.dart'; // for Annotation model
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
+// Import your timeline view
+import 'package:map_mvp_project/src/earth_pages/timeline/timeline.dart';
 
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
@@ -465,9 +466,6 @@ class EarthMapPageState extends State<EarthMapPage> {
                       return;
                     }
 
-                    final parts = address.split(',');
-                    final streetPart = parts.isNotEmpty ? parts[0].trim() : address;
-
                     final coords = await GeocodingService.fetchCoordinatesFromAddress(address);
                     if (coords != null) {
                       logger.i('Coordinates received: $coords');
@@ -482,7 +480,7 @@ class EarthMapPageState extends State<EarthMapPage> {
                       final annotationId = uuid.v4();
                       final annotation = Annotation(
                         id: annotationId,
-                        title: streetPart.isNotEmpty ? streetPart : null,
+                        title: address.isNotEmpty ? address : null,
                         iconName: "cross",
                         startDate: null,
                         note: null,
@@ -678,9 +676,8 @@ class EarthMapPageState extends State<EarthMapPage> {
 
   Widget _buildTimelineCanvas() {
     if (!_showTimelineCanvas) return const SizedBox.shrink();
-    // Previously 38 pixels per cm. Now add another cm: total left/right = 2cm each side
-    // That means 38 px/cm * 2 = 76 on each side
-    // top and bottom we had 0.5cm (19px), keep it the same
+    // Remember our margins: 
+    // 2cm each side ≈ 76px each side, top/bottom ~ 19px
     return Positioned(
       left: 76,
       right: 76,
@@ -690,9 +687,7 @@ class EarthMapPageState extends State<EarthMapPage> {
         ignoring: false,
         child: Container(
           color: Colors.white.withOpacity(0.9),
-          child: CustomPaint(
-            painter: _SimpleLinePainter(),
-          ),
+          child: const TimelineView(), // Using the TimelineView from timeline.dart
         ),
       ),
     );
@@ -719,21 +714,5 @@ class EarthMapPageState extends State<EarthMapPage> {
               ],
             ),
     );
-  }
-}
-
-class _SimpleLinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, ui.Size size) {
-    // White background only, no black line now
-    final bgPaint = Paint()..color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
-
-    // Removed the line painting code
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
   }
 }
