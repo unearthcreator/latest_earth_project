@@ -346,24 +346,25 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   Widget _buildTimelineButton() {
-    return Positioned(
-      top: 90,
-      left: 10,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          shape: const CircleBorder(),
-          padding: const EdgeInsets.all(8),
-        ),
-        onPressed: () {
-          logger.i('Timeline button clicked');
-          setState(() {
-            _showTimelineCanvas = !_showTimelineCanvas;
-          });
-        },
-        child: const Icon(Icons.timeline),
+  return Positioned(
+    top: 90,
+    left: 10,
+    child: ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        shape: const CircleBorder(),
+        padding: const EdgeInsets.all(8),
       ),
-    );
-  }
+      onPressed: () {
+        logger.i('Timeline button clicked');
+        setState(() {
+          _showTimelineCanvas = !_showTimelineCanvas;
+        });
+        _queryVisibleFeatures(); // Query features when timeline button is clicked
+      },
+      child: const Icon(Icons.timeline),
+    ),
+  );
+}
 
   Widget _buildClearAnnotationsButton() {
     return Positioned(
@@ -690,6 +691,28 @@ class EarthMapPageState extends State<EarthMapPage> {
       ),
     ),
   );
+}
+
+Future<void> _queryVisibleFeatures() async {
+  if (!_isMapReady) return;
+
+  final width = MediaQuery.of(context).size.width;
+  final height = MediaQuery.of(context).size.height;
+
+  final features = await _mapboxMap.queryRenderedFeatures(
+    RenderedQueryGeometry.fromScreenBox(
+      ScreenBox(
+        min: ScreenCoordinate(x: 0, y: 0),
+        max: ScreenCoordinate(x: width, y: height),
+      ),
+    ),
+    RenderedQueryOptions(
+      layerIds: [ _annotationsManager.annotationLayerId ], 
+      filter: null,
+    ),
+  );
+
+  logger.i('Viewport features found: ${features.length}');
 }
 
   @override
