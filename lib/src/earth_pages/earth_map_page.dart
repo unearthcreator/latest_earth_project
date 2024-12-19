@@ -674,24 +674,23 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
-  Widget _buildTimelineCanvas() {
-    if (!_showTimelineCanvas) return const SizedBox.shrink();
-    // Remember our margins: 
-    // 2cm each side ≈ 76px each side, top/bottom ~ 19px
-    return Positioned(
-      left: 76,
-      right: 76,
-      top: 19,
-      bottom: 19,
-      child: IgnorePointer(
-        ignoring: false,
-        child: Container(
-          color: Colors.white.withOpacity(0.9),
-          child: const TimelineView(), // Using the TimelineView from timeline.dart
-        ),
+ Widget _buildTimelineCanvas() {
+  if (!_showTimelineCanvas) return const SizedBox.shrink();
+  
+  return Positioned(
+    left: 76,
+    right: 76,
+    top: 19,
+    bottom: 19,
+    child: IgnorePointer(
+      ignoring: false,
+      child: Container(
+        // Remove the color since TimelinePainter draws white background
+        child: const TimelineView(),
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
