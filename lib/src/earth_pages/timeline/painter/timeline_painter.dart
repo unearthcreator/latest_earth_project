@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
-import 'dart:ui'; // for Size, Canvas, etc.
+import 'dart:ui' as ui; // We'll use ui.Size for clarity
+import 'package:map_mvp_project/src/earth_pages/timeline/painter/utils/timeline_axis.dart'; 
+// Adjust the import path accordingly to your actual folder structure
 
 class TimelinePainter extends CustomPainter {
   @override
-  void paint(Canvas canvas, Size size) {
+  void paint(Canvas canvas, ui.Size size) {
     // White background
     final bgPaint = Paint()..color = Colors.white;
-    // We're assuming we've already decided how much margin we want; 
-    // The widget that uses this painter should account for that in its size.
+    canvas.drawRect(ui.Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
-
-    // At this point, no lines or drawings if you decided to remove the line.
-    // Just a blank white background for now.
+    // Now we draw the bottom axis line using our utility function
+    drawTimelineAxis(canvas, size);
   }
 
   @override

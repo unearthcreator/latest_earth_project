@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:map_mvp_project/src/earth_pages/timeline/utils/timeline_painter.dart'; 
+import 'package:map_mvp_project/src/earth_pages/timeline/painter/timeline_painter.dart'; 
 // Adjust the import path according to your project's structure
 
 class TimelineView extends StatelessWidget {
