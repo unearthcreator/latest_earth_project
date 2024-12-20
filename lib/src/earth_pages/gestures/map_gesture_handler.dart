@@ -12,6 +12,7 @@ import 'package:map_mvp_project/src/earth_pages/utils/trash_can_handler.dart';
 import 'package:uuid/uuid.dart'; // for unique IDs
 import 'package:map_mvp_project/models/annotation.dart'; // Your Annotation model
 import 'package:map_mvp_project/repositories/local_annotations_repository.dart'; // Your local repo
+import 'package:map_mvp_project/src/earth_pages/annotations/annotation_id_linker.dart';
 
 typedef AnnotationLongPressCallback = void Function(PointAnnotation annotation, Point annotationPosition);
 typedef AnnotationDragUpdateCallback = void Function(PointAnnotation annotation);
@@ -39,6 +40,7 @@ class MapGestureHandler {
   final AnnotationDragUpdateCallback? onAnnotationDragUpdate;
   final DragEndCallback? onDragEnd;
   final AnnotationRemovedCallback? onAnnotationRemoved;
+  final AnnotationIdLinker annotationIdLinker = AnnotationIdLinker();
 
   // Callback to notify when connect mode is disabled
   VoidCallback? onConnectModeDisabled;
@@ -325,10 +327,11 @@ class MapGestureHandler {
               await localAnnotationsRepository.addAnnotation(annotation);
               logger.i('Annotation saved to Hive with id: $id');
 
-              _annotationIdMap[mapAnnotation.id] = id;
-
+              annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
+              logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
               final savedAnnotations = await localAnnotationsRepository.getAnnotations();
               logger.i('Annotations currently in Hive: $savedAnnotations');
+              
             } else {
               logger.w('No long press point stored, cannot place annotation (quickSave).');
             }
@@ -422,11 +425,11 @@ class MapGestureHandler {
 
               await localAnnotationsRepository.addAnnotation(annotation);
               logger.i('Annotation saved to Hive with id: $id');
-
-              _annotationIdMap[mapAnnotation.id] = id;
+              annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
 
               final savedAnnotations = await localAnnotationsRepository.getAnnotations();
               logger.i('Annotations currently in Hive: $savedAnnotations');
+              logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
             } else {
               logger.w('No long press point stored, cannot place annotation (quickSave after change).');
             }
@@ -481,10 +484,11 @@ class MapGestureHandler {
           await localAnnotationsRepository.addAnnotation(annotation);
           logger.i('Annotation saved to Hive with id: $id');
 
-          _annotationIdMap[mapAnnotation.id] = id;
+          annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
 
           final savedAnnotations = await localAnnotationsRepository.getAnnotations();
           logger.i('Annotations currently in Hive: $savedAnnotations');
+          logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
 
         } else {
           logger.i('User cancelled the annotation note dialog or no long press point stored - no annotation added.');
