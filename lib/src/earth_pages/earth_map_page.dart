@@ -18,6 +18,7 @@ import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.d
 // Import your timeline view
 import 'package:map_mvp_project/src/earth_pages/timeline/timeline.dart';
 import'package:map_mvp_project/src/earth_pages/annotations/annotation_id_linker.dart';
+import 'package:map_mvp_project/src/earth_pages/utils/map_queries.dart';
 
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
@@ -369,7 +370,13 @@ class EarthMapPageState extends State<EarthMapPage> {
         setState(() {
           _showTimelineCanvas = !_showTimelineCanvas;
         });
-        _queryVisibleFeatures(); // Query features when timeline button is clicked
+        // Call the function from map_queries.dart with the required parameters
+        queryVisibleFeatures(
+          context: context,
+          isMapReady: _isMapReady,
+          mapboxMap: _mapboxMap,
+          annotationsManager: _annotationsManager,
+        );
       },
       child: const Icon(Icons.timeline),
     ),
@@ -703,27 +710,6 @@ class EarthMapPageState extends State<EarthMapPage> {
   );
 }
 
-Future<void> _queryVisibleFeatures() async {
-  if (!_isMapReady) return;
-
-  final width = MediaQuery.of(context).size.width;
-  final height = MediaQuery.of(context).size.height;
-
-  final features = await _mapboxMap.queryRenderedFeatures(
-    RenderedQueryGeometry.fromScreenBox(
-      ScreenBox(
-        min: ScreenCoordinate(x: 0, y: 0),
-        max: ScreenCoordinate(x: width, y: height),
-      ),
-    ),
-    RenderedQueryOptions(
-      layerIds: [ _annotationsManager.annotationLayerId ], 
-      filter: null,
-    ),
-  );
-
-  logger.i('Viewport features found: ${features.length}');
-}
 
   @override
   Widget build(BuildContext context) {
