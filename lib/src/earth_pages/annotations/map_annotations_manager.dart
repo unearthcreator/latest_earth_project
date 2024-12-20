@@ -1,12 +1,23 @@
 import 'dart:typed_data';
+import 'package:flutter/services.dart'; // for rootBundle
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
+import 'package:map_mvp_project/src/earth_pages/annotations/annotation_id_linker.dart';
+import 'package:map_mvp_project/repositories/local_annotations_repository.dart';
 
 class MapAnnotationsManager {
   final PointAnnotationManager _annotationManager;
+  final AnnotationIdLinker annotationIdLinker; // Add this field
+  final LocalAnnotationsRepository localAnnotationsRepository; // Add this field
+
   final List<PointAnnotation> _annotations = [];
- 
-  MapAnnotationsManager(this._annotationManager);
+
+  // Update the constructor to accept these new parameters as named parameters.
+  MapAnnotationsManager(
+    this._annotationManager, {
+    required this.annotationIdLinker,
+    required this.localAnnotationsRepository,
+  });
 
   // Add a getter to access the underlying annotation manager
   PointAnnotationManager get pointAnnotationManager => _annotationManager;
@@ -18,13 +29,12 @@ class MapAnnotationsManager {
     String? date,
   }) async {
     logger.i('Adding annotation at: ${mapPoint.coordinates.lat}, ${mapPoint.coordinates.lng}');
-    
+
     final hasTitle = title != null && title.isNotEmpty;
     final hasDate = date != null && date.isNotEmpty;
 
     String? displayText;
     if (hasTitle && hasDate) {
-      // Two lines: title then date
       displayText = "$title\n$date";
     } else if (hasTitle) {
       displayText = title;
@@ -34,23 +44,21 @@ class MapAnnotationsManager {
       displayText = null;
     }
 
-    // If no custom image is provided, we use a default sprite icon from the style
-    // "marker-15" is a common sprite icon available in the default styles.
     final iconImageName = (image == null) ? "marker-15" : null;
 
     final annotationOptions = PointAnnotationOptions(
       geometry: mapPoint,
       iconSize: 5.0,
       image: image,
-      iconImage: iconImageName, // Use default sprite if no custom image is provided
+      iconImage: iconImageName,
       textField: displayText,
       textSize: (displayText != null) ? 18.0 : null,
       textAnchor: (displayText != null) ? TextAnchor.BOTTOM : null,
       iconAnchor: IconAnchor.BOTTOM,
       textOffset: (displayText != null) ? [0, -2.1] : null,
       textLineHeight: (hasTitle && hasDate) ? 1.2 : null,
-      textColor: (displayText != null) ? 0xFFFFFFFF : null,   // White text
-      textHaloColor: (displayText != null) ? 0xFF000000 : null, // Black halo
+      textColor: (displayText != null) ? 0xFFFFFFFF : null,
+      textHaloColor: (displayText != null) ? 0xFF000000 : null,
       textHaloWidth: (displayText != null) ? 1.0 : null,
       textHaloBlur: (displayText != null) ? 0.5 : null,
     );
@@ -96,7 +104,7 @@ class MapAnnotationsManager {
     }
     double minDistance = double.infinity;
     PointAnnotation? nearest;
-   
+
     for (var annotation in _annotations) {
       double distance = _calculateDistance(annotation.geometry, tapPoint);
       logger.i('Checking annotation distance: $distance');
@@ -105,13 +113,60 @@ class MapAnnotationsManager {
         nearest = annotation;
       }
     }
-   
+
     if (nearest != null) {
       logger.i('Found nearest annotation at distance: $minDistance');
     }
-   
+
     return minDistance < 2.0 ? nearest : null;
   }
+
+  Future<void> loadAnnotationsFromHive() async {
+  logger.i('Loading saved annotations from Hive.');
+  
+  // Fetch all annotations stored in Hive
+  final hiveAnnotations = await localAnnotationsRepository.getAnnotations();
+
+  for (final ann in hiveAnnotations) {
+    final lat = ann.latitude;
+    final lng = ann.longitude;
+
+    // Skip any annotations that don't have valid coordinates
+    if (lat == null || lng == null) {
+      logger.w('Annotation ${ann.id} is missing coordinates, skipping.');
+      continue;
+    }
+
+    // Create a Point from the stored coordinates
+    final point = Point(coordinates: Position(lng, lat));
+
+    // Attempt to load a custom icon if specified, otherwise fall back to default
+    Uint8List? iconBytes;
+    if (ann.iconName != null && ann.iconName!.isNotEmpty) {
+      try {
+        final iconData = await rootBundle.load('assets/icons/${ann.iconName}.png');
+        iconBytes = iconData.buffer.asUint8List();
+      } catch (e) {
+        logger.w('Failed to load icon ${ann.iconName} for annotation ${ann.id}, using default marker.');
+        iconBytes = null;
+      }
+    }
+
+    // Add the annotation to the map
+    final mapAnnotation = await addAnnotation(
+      point,
+      image: iconBytes,
+      title: ann.title,
+      date: ann.startDate,
+    );
+
+    // Link the Mapbox annotation ID to the Hive annotation ID
+    annotationIdLinker.registerAnnotationId(mapAnnotation.id, ann.id);
+    logger.i('Linked Hive ID ${ann.id} to Mapbox annotation ID ${mapAnnotation.id}');
+  }
+
+  logger.i('Completed loading saved annotations from Hive.');
+}
 
   double _calculateDistance(Point p1, Point p2) {
     double latDiff = (p1.coordinates.lat.toDouble() - p2.coordinates.lat.toDouble()).abs();

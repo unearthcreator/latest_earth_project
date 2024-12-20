@@ -17,6 +17,7 @@ import 'package:map_mvp_project/models/annotation.dart'; // for Annotation model
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
 // Import your timeline view
 import 'package:map_mvp_project/src/earth_pages/timeline/timeline.dart';
+import'package:map_mvp_project/src/earth_pages/annotations/annotation_id_linker.dart';
 
 class EarthMapPage extends StatefulWidget {
   const EarthMapPage({super.key});
@@ -85,51 +86,60 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   Future<void> _onMapCreated(MapboxMap mapboxMap) async {
-    try {
-      logger.i('Starting map initialization');
-      _mapboxMap = mapboxMap;
+  try {
+    logger.i('Starting map initialization');
+    _mapboxMap = mapboxMap;
 
-      final annotationManager = await mapboxMap.annotations
-          .createPointAnnotationManager()
-          .onError((error, stackTrace) {
-        logger.e('Failed to create annotation manager', error: error, stackTrace: stackTrace);
-        throw Exception('Failed to initialize map annotations');
-      });
+    final annotationManager = await mapboxMap.annotations
+        .createPointAnnotationManager()
+        .onError((error, stackTrace) {
+      logger.e('Failed to create annotation manager', error: error, stackTrace: stackTrace);
+      throw Exception('Failed to initialize map annotations');
+    });
 
-      _annotationsManager = MapAnnotationsManager(annotationManager);
-      _localRepo = LocalAnnotationsRepository();
+    _localRepo = LocalAnnotationsRepository();
+    final annotationIdLinker = AnnotationIdLinker();
 
-      _gestureHandler = MapGestureHandler(
-        mapboxMap: mapboxMap,
-        annotationsManager: _annotationsManager,
-        context: context,
-        localAnnotationsRepository: _localRepo,
-        onAnnotationLongPress: _handleAnnotationLongPress,
-        onAnnotationDragUpdate: _handleAnnotationDragUpdate,
-        onDragEnd: _handleDragEnd,
-        onAnnotationRemoved: _handleAnnotationRemoved,
-        onConnectModeDisabled: () {
-          setState(() {
-            _isConnectMode = false;
-          });
-        },
-      );
+    _annotationsManager = MapAnnotationsManager(
+      annotationManager,
+      annotationIdLinker: annotationIdLinker,
+      localAnnotationsRepository: _localRepo,
+    );
 
-      logger.i('Map initialization completed successfully');
-
-      if (mounted) {
-        setState(() => _isMapReady = true);
-      }
-    } catch (e, stackTrace) {
-      logger.e('Error during map initialization', error: e, stackTrace: stackTrace);
-      if (mounted) {
+    _gestureHandler = MapGestureHandler(
+      mapboxMap: mapboxMap,
+      annotationsManager: _annotationsManager,
+      context: context,
+      localAnnotationsRepository: _localRepo,
+      onAnnotationLongPress: _handleAnnotationLongPress,
+      onAnnotationDragUpdate: _handleAnnotationDragUpdate,
+      onDragEnd: _handleDragEnd,
+      onAnnotationRemoved: _handleAnnotationRemoved,
+      onConnectModeDisabled: () {
         setState(() {
-          _isError = true;
-          _errorMessage = 'Failed to initialize map: ${e.toString()}';
+          _isConnectMode = false;
         });
-      }
+      },
+    );
+
+    logger.i('Map initialization completed successfully');
+
+    if (mounted) {
+      setState(() => _isMapReady = true);
+
+      // Now that the map is ready, load and place previously saved annotations
+      await _annotationsManager.loadAnnotationsFromHive(); 
+    }
+  } catch (e, stackTrace) {
+    logger.e('Error during map initialization', error: e, stackTrace: stackTrace);
+    if (mounted) {
+      setState(() {
+        _isError = true;
+        _errorMessage = 'Failed to initialize map: ${e.toString()}';
+      });
     }
   }
+}
 
   void _handleAnnotationLongPress(PointAnnotation annotation, Point annotationPosition) async {
     final screenPos = await _mapboxMap.pixelForCoordinate(annotationPosition);
