@@ -365,18 +365,34 @@ class EarthMapPageState extends State<EarthMapPage> {
         shape: const CircleBorder(),
         padding: const EdgeInsets.all(8),
       ),
-      onPressed: () {
+      onPressed: () async {
         logger.i('Timeline button clicked');
+
+        // Toggle the canvas visibility (same as before).
         setState(() {
           _showTimelineCanvas = !_showTimelineCanvas;
         });
-        // Call the function from map_queries.dart with the required parameters
-        queryVisibleFeatures(
+
+        // 1) Query the map for visible annotation IDs.
+        final annotationIds = await queryVisibleFeatures(
           context: context,
           isMapReady: _isMapReady,
           mapboxMap: _mapboxMap,
           annotationsManager: _annotationsManager,
         );
+        logger.i('Received annotationIds from map_queries: $annotationIds');
+        logger.i('Number of IDs returned: ${annotationIds.length}');
+
+        // 2) Convert those mapbox IDs -> Hive IDs using the annotationIdLinker.
+        final hiveIds = _annotationsManager.annotationIdLinker
+            .getHiveIdsForMultipleAnnotations(annotationIds);
+
+        // 3) Log out the Hive IDs we got back:
+        logger.i('Got these Hive IDs from annotationIdLinker: $hiveIds');
+        logger.i('Number of Hive IDs: ${hiveIds.length}');
+
+        // (Next step: fetch actual Annotation objects from Hive or do something
+        //  more sophisticated with these hiveIds.)
       },
       child: const Icon(Icons.timeline),
     ),

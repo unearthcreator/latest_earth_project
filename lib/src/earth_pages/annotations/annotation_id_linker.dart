@@ -25,6 +25,20 @@ class AnnotationIdLinker {
     }
   }
 
+  /// Retrieves the Hive IDs for a list of Mapbox annotation IDs.
+List<String> getHiveIdsForMultipleAnnotations(List<String> mapboxIds) {
+  final List<String> result = [];
+  for (final mapboxId in mapboxIds) {
+    final hiveId = _idMap[mapboxId];
+    if (hiveId != null) {
+      result.add(hiveId);
+    } else {
+      // Optionally log or handle the missing case
+    }
+  }
+  return result;
+}
+
   /// Retrieves the Hive ID for the given mapAnnotationId, if any.
   String? getHiveIdForAnnotation(String mapAnnotationId) {
     return _idMap[mapAnnotationId];
