@@ -271,233 +271,245 @@ class MapGestureHandler {
   }
 
   void _startPlacementDialogTimer(Point point) {
-    _placementDialogTimer?.cancel();
-    logger.i('Starting placement dialog timer for annotation at $point.');
-    _placementDialogTimer = Timer(const Duration(milliseconds: 400), () async {
-      try {
-        logger.i('Attempting to show initial form dialog now.');
-        final initialData = await showAnnotationInitializationDialog(context);
-        logger.i('Initial form dialog returned: $initialData');
-        if (initialData != null) {
-          _chosenTitle = initialData['title'] as String?;
-          _chosenIconName = initialData['icon'] as String;
-          _chosenStartDate = initialData['date'] as String?;
-          _chosenEndDate = initialData['endDate'] as String?; // Retrieve endDate as well
+  _placementDialogTimer?.cancel();
+  logger.i('Starting placement dialog timer for annotation at $point.');
 
-          bool quickSave = initialData['quickSave'] == true;
+  _placementDialogTimer = Timer(const Duration(milliseconds: 400), () async {
+    try {
+      logger.i('Attempting to show initial form dialog now.');
+      final initialData = await showAnnotationInitializationDialog(context);
+      logger.i('Initial form dialog returned: $initialData');
+      
+      if (initialData != null) {
+        _chosenTitle = initialData['title'] as String?;
+        _chosenIconName = initialData['icon'] as String;
+        _chosenStartDate = initialData['date'] as String?;
+        _chosenEndDate = initialData['endDate'] as String?; // If included in your form
 
-          logger.i('Got title=$_chosenTitle, icon=$_chosenIconName, startDate=$_chosenStartDate, endDate=$_chosenEndDate, quickSave=$quickSave.');
+        final bool quickSave = (initialData['quickSave'] == true);
 
-          if (quickSave) {
-            final note = '';
-            final imagePath = null;
-            final filePath = null;
+        logger.i(
+          'Got title=$_chosenTitle, icon=$_chosenIconName, '
+          'startDate=$_chosenStartDate, endDate=$_chosenEndDate, quickSave=$quickSave.'
+        );
 
-            if (_longPressPoint != null) {
-              logger.i('Adding annotation (quickSave) at ${_longPressPoint?.coordinates}.');
+        if (quickSave) {
+          // -- QUICK SAVE PATH --
+          if (_longPressPoint != null) {
+            logger.i('Adding annotation (quickSave) at ${_longPressPoint?.coordinates}.');
+            
+            // 1) Load the image bytes for the selected icon.
+            final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
+            final imageData = bytes.buffer.asUint8List();
 
-              final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
-              final imageData = bytes.buffer.asUint8List();
+            // 2) Create a map annotation visually
+            final mapAnnotation = await annotationsManager.addAnnotation(
+              _longPressPoint!,
+              image: imageData,
+              title: _chosenTitle ?? '',
+              date: _chosenStartDate ?? '',
+            );
+            logger.i('Annotation added (quickSave) at ${_longPressPoint?.coordinates} with Mapbox ID: ${mapAnnotation.id}');
 
-              final mapAnnotation = await annotationsManager.addAnnotation(
-                _longPressPoint!,
-                image: imageData,
-                title: _chosenTitle ?? '',
-                date: _chosenStartDate ?? ''
-              );
+            // 3) Create a Hive annotation
+            final id = uuid.v4();
+            final latitude = _longPressPoint!.coordinates.lat.toDouble();
+            final longitude = _longPressPoint!.coordinates.lng.toDouble();
 
-              logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
+            final annotation = Annotation(
+              id: id,
+              title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
+              iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
+              startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+              endDate: _chosenEndDate?.isNotEmpty == true ? _chosenEndDate : null,
+              note: null,   // quickSave => no note (or set your default)
+              latitude: latitude,
+              longitude: longitude,
+              imagePath: null,
+            );
 
-              final id = uuid.v4();
-              final latitude = _longPressPoint!.coordinates.lat.toDouble();
-              final longitude = _longPressPoint!.coordinates.lng.toDouble();
+            // 4) Save it to Hive
+            await localAnnotationsRepository.addAnnotation(annotation);
+            logger.i('Annotation saved to Hive with ID: $id');
 
-              final annotation = Annotation(
-                id: id,
-                title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
-                iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
-                startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
-                endDate: _chosenEndDate?.isNotEmpty == true ? _chosenEndDate : null, // Save endDate
-                note: note.isNotEmpty ? note : null,
-                latitude: latitude,
-                longitude: longitude,
-                imagePath: imagePath,
-              );
+            // 5) Link the newly created Mapbox ID to the Hive ID
+            annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
+            logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
 
-              await localAnnotationsRepository.addAnnotation(annotation);
-              logger.i('Annotation saved to Hive with id: $id');
-
-              annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
-              logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
-              final savedAnnotations = await localAnnotationsRepository.getAnnotations();
-              logger.i('Annotations currently in Hive: $savedAnnotations');
-              
-            } else {
-              logger.w('No long press point stored, cannot place annotation (quickSave).');
-            }
+            final savedAnnotations = await localAnnotationsRepository.getAnnotations();
+            logger.i('Annotations currently in Hive: $savedAnnotations');
           } else {
-            // Proceed with second dialog (form dialog)
-            await startFormDialogFlow();
+            logger.w('No long press point stored, cannot place annotation (quickSave).');
           }
         } else {
-          logger.i('User closed the initial form dialog - no annotation added.');
+          // "Continue" path → calls the second dialog flow
+          await startFormDialogFlow();
         }
-      } catch (e) {
-        logger.e('Error in placement dialog timer: $e');
+      } else {
+        logger.i('User closed the initial form dialog - no annotation added.');
       }
-    });
-  }
+    } catch (e) {
+      logger.e('Error in placement dialog timer: $e');
+    }
+  });
+}
 
   Future<void> startFormDialogFlow() async {
   logger.i('Showing annotation form dialog now.');
+  
   final result = await showAnnotationFormDialog(
     context,
     title: _chosenTitle ?? '',
-    chosenIcon: Icons.star, // map _chosenIconName if needed
+    chosenIcon: Icons.star, // or map `_chosenIconName` if needed
     chosenIconName: _chosenIconName,
     date: _chosenStartDate ?? '',
-    endDate: _chosenEndDate ?? '', // Pass the endDate here as well
+    endDate: _chosenEndDate ?? '',
   );
-    logger.i('Annotation form dialog returned: $result');
+  logger.i('Annotation form dialog returned: $result');
 
-    if (result != null) {
-      if (result['action'] == 'change') {
-        // User wants to modify initial fields
-        final changedTitle = result['title'] ?? '';
-        final changedIcon = result['icon'] ?? 'cross';
-        final changedStartDate = result['date'] ?? '';
-        final changedEndDate = result['endDate'] ?? ''; // retrieve endDate from form if available
+  if (result != null) {
+    // If user wants to 'change', they basically want to go back & modify some initial fields
+    if (result['action'] == 'change') {
+      // They are re-opening the initial dialog with updated fields
+      final changedTitle = result['title'] ?? '';
+      final changedIcon = result['icon'] ?? 'cross';
+      final changedStartDate = result['date'] ?? '';
+      final changedEndDate = result['endDate'] ?? '';
 
-        logger.i('User chose to change initial fields.');
-        final secondInitResult = await showAnnotationInitializationDialog(
-          context,
-          initialTitle: changedTitle,
-          initialIconName: changedIcon,
-          initialDate: changedStartDate,
-          initialEndDate: changedEndDate, // pass initialEndDate if needed
-        );
+      logger.i('User chose to change initial fields.');
+      final secondInitResult = await showAnnotationInitializationDialog(
+        context,
+        initialTitle: changedTitle,
+        initialIconName: changedIcon,
+        initialDate: changedStartDate,
+        initialEndDate: changedEndDate,
+      );
 
-        logger.i('Second initialization dialog returned: $secondInitResult');
+      logger.i('Second initialization dialog returned: $secondInitResult');
 
-        if (secondInitResult != null) {
-          _chosenTitle = secondInitResult['title'] as String?;
-          _chosenIconName = secondInitResult['icon'] as String;
-          _chosenStartDate = secondInitResult['date'] as String?;
-          _chosenEndDate = secondInitResult['endDate'] as String?;
+      if (secondInitResult != null) {
+        _chosenTitle = secondInitResult['title'] as String?;
+        _chosenIconName = secondInitResult['icon'] as String;
+        _chosenStartDate = secondInitResult['date'] as String?;
+        _chosenEndDate = secondInitResult['endDate'] as String?;
 
-          bool newQuickSave = secondInitResult['quickSave'] == true;
+        final bool newQuickSave = (secondInitResult['quickSave'] == true);
+        if (newQuickSave) {
+          // QuickSave after they've changed the fields
+          if (_longPressPoint != null) {
+            logger.i('Adding annotation (quickSave after change) at ${_longPressPoint?.coordinates}.');
 
-          if (newQuickSave) {
-            final note = '';
-            final imagePath = null;
-            final filePath = null;
+            // 1) Icon data
+            final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
+            final imageData = bytes.buffer.asUint8List();
 
-            if (_longPressPoint != null) {
-              logger.i('Adding annotation (quickSave after change) at ${_longPressPoint?.coordinates}.');
+            // 2) Create the annotation visually
+            final mapAnnotation = await annotationsManager.addAnnotation(
+              _longPressPoint!,
+              image: imageData,
+              title: _chosenTitle ?? '',
+              date: _chosenStartDate ?? ''
+            );
+            logger.i('Annotation added successfully at ${_longPressPoint?.coordinates} - ID: ${mapAnnotation.id}');
 
-              final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
-              final imageData = bytes.buffer.asUint8List();
+            // 3) Build the Hive annotation
+            final id = uuid.v4();
+            final latitude = _longPressPoint!.coordinates.lat.toDouble();
+            final longitude = _longPressPoint!.coordinates.lng.toDouble();
 
-              final mapAnnotation = await annotationsManager.addAnnotation(
-                _longPressPoint!,
-                image: imageData,
-                title: _chosenTitle ?? '',
-                date: _chosenStartDate ?? ''
-              );
+            final annotation = Annotation(
+              id: id,
+              title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
+              iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
+              startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+              endDate: _chosenEndDate?.isNotEmpty == true ? _chosenEndDate : null,
+              note: null, // no note for quicksave, or pass your default
+              latitude: latitude,
+              longitude: longitude,
+              imagePath: null,
+            );
 
-              logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
+            // 4) Save to Hive
+            await localAnnotationsRepository.addAnnotation(annotation);
+            logger.i('Annotation saved to Hive with id: $id');
+            
+            // 5) Link them
+            annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
+            logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
 
-              final id = uuid.v4();
-              final latitude = _longPressPoint!.coordinates.lat.toDouble();
-              final longitude = _longPressPoint!.coordinates.lng.toDouble();
-
-              final annotation = Annotation(
-                id: id,
-                title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
-                iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
-                startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
-                endDate: _chosenEndDate?.isNotEmpty == true ? _chosenEndDate : null, // save endDate here too
-                note: note.isNotEmpty ? note : null,
-                latitude: latitude,
-                longitude: longitude,
-                imagePath: imagePath,
-              );
-
-              await localAnnotationsRepository.addAnnotation(annotation);
-              logger.i('Annotation saved to Hive with id: $id');
-              annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
-
-              final savedAnnotations = await localAnnotationsRepository.getAnnotations();
-              logger.i('Annotations currently in Hive: $savedAnnotations');
-              logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
-            } else {
-              logger.w('No long press point stored, cannot place annotation (quickSave after change).');
-            }
+            final savedAnnotations = await localAnnotationsRepository.getAnnotations();
+            logger.i('Annotations currently in Hive: $savedAnnotations');
           } else {
-            // Show form dialog again with updated values
-            await startFormDialogFlow();
+            logger.w('No long press point stored, cannot place annotation (quickSave after change).');
           }
         } else {
-          logger.i('User cancelled after choosing change - no annotation added.');
+          // If not quickSave again, just show the final form dialog once more:
+          await startFormDialogFlow();
         }
-
       } else {
-        // No action=change, user either saved or cancelled
-        final note = result['note'] ?? '';
-        final imagePath = result['imagePath'];
-        final filePath = result['filePath'];
-        final endDate = result['endDate'] ?? ''; // retrieve endDate from result if available
-
-        logger.i('User entered note: $note, imagePath: $imagePath, filePath: $filePath');
-
-        if (_longPressPoint != null) {
-          logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
-
-          final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
-          final imageData = bytes.buffer.asUint8List();
-
-          final mapAnnotation = await annotationsManager.addAnnotation(
-            _longPressPoint!,
-            image: imageData,
-            title: _chosenTitle ?? '',
-            date: _chosenStartDate ?? ''
-          );
-
-          logger.i('Annotation added successfully at ${_longPressPoint?.coordinates}');
-
-          final id = uuid.v4();
-          final latitude = _longPressPoint!.coordinates.lat.toDouble();
-          final longitude = _longPressPoint!.coordinates.lng.toDouble();
-
-          final annotation = Annotation(
-            id: id,
-            title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
-            iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
-            startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
-            endDate: endDate.isNotEmpty ? endDate : null, // save endDate here
-            note: note.isNotEmpty ? note : null,
-            latitude: latitude,
-            longitude: longitude,
-            imagePath: (imagePath != null && imagePath.isNotEmpty) ? imagePath : null,
-          );
-
-          await localAnnotationsRepository.addAnnotation(annotation);
-          logger.i('Annotation saved to Hive with id: $id');
-
-          annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
-
-          final savedAnnotations = await localAnnotationsRepository.getAnnotations();
-          logger.i('Annotations currently in Hive: $savedAnnotations');
-          logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
-
-        } else {
-          logger.i('User cancelled the annotation note dialog or no long press point stored - no annotation added.');
-        }
+        logger.i('User cancelled after choosing change - no annotation added.');
       }
+
     } else {
-      logger.i('User cancelled the annotation form dialog - no annotation added.');
+      // ============ FINAL SAVE or CANCEL PATH ============
+      final note = result['note'] ?? '';
+      final imagePath = result['imagePath'];
+      final filePath = result['filePath'];
+      final endDate = result['endDate'] ?? '';
+
+      logger.i('User entered note: $note, imagePath: $imagePath, filePath: $filePath');
+
+      if (_longPressPoint != null) {
+        logger.i('Adding annotation at ${_longPressPoint?.coordinates} with chosen data.');
+
+        // 1) Prepare icon image bytes
+        final bytes = await rootBundle.load('assets/icons/$_chosenIconName.png');
+        final imageData = bytes.buffer.asUint8List();
+
+        // 2) Add the annotation visually
+        final mapAnnotation = await annotationsManager.addAnnotation(
+          _longPressPoint!,
+          image: imageData,
+          title: _chosenTitle ?? '',
+          date: _chosenStartDate ?? ''
+        );
+        logger.i('Annotation added (continue->save) at ${_longPressPoint?.coordinates}, MapboxID=${mapAnnotation.id}');
+
+        // 3) Build the Hive model
+        final id = uuid.v4();
+        final latitude = _longPressPoint!.coordinates.lat.toDouble();
+        final longitude = _longPressPoint!.coordinates.lng.toDouble();
+
+        final annotation = Annotation(
+          id: id,
+          title: _chosenTitle?.isNotEmpty == true ? _chosenTitle : null,
+          iconName: _chosenIconName.isNotEmpty ? _chosenIconName : null,
+          startDate: _chosenStartDate?.isNotEmpty == true ? _chosenStartDate : null,
+          endDate: endDate.isNotEmpty ? endDate : null,
+          note: note.isNotEmpty ? note : null,
+          latitude: latitude,
+          longitude: longitude,
+          imagePath: (imagePath != null && imagePath.isNotEmpty) ? imagePath : null,
+        );
+
+        // 4) Save to Hive
+        await localAnnotationsRepository.addAnnotation(annotation);
+        logger.i('Annotation saved to Hive with id: $id');
+
+        // 5) Link them
+        annotationIdLinker.registerAnnotationId(mapAnnotation.id, id);
+        logger.i('Linked mapAnnotation.id=${mapAnnotation.id} with hiveUUID=$id');
+
+        final savedAnnotations = await localAnnotationsRepository.getAnnotations();
+        logger.i('Annotations currently in Hive: $savedAnnotations');
+      } else {
+        logger.i('User cancelled the annotation note dialog or no long press point stored - no annotation added.');
+      }
     }
+  } else {
+    logger.i('User cancelled the annotation form dialog - no annotation added.');
   }
+}
 
   void cancelTimer() {
     logger.i('Cancelling timers and resetting state');
