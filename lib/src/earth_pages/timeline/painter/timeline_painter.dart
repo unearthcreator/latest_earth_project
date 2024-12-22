@@ -1,32 +1,55 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui; // We'll use ui.Size for clarity
+import 'package:map_mvp_project/models/annotation.dart';
 import 'package:map_mvp_project/src/earth_pages/timeline/painter/utils/timeline_axis.dart'; 
-// Adjust the import path accordingly to your actual folder structure
+// Adjust the above imports according to your actual folder structure
 
 class TimelinePainter extends CustomPainter {
+  final List<Annotation> annotationList;
+
+  TimelinePainter({required this.annotationList});
+
   @override
   void paint(Canvas canvas, ui.Size size) {
     // White background
     final bgPaint = Paint()..color = Colors.white;
     canvas.drawRect(ui.Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    // Now we draw the bottom axis line using our utility function
+    // Log out how many annotations we have:
+    debugPrint('TimelinePainter: We have ${annotationList.length} annotations.');
+
+    // Then log each annotation's basic info
+    for (final ann in annotationList) {
+      debugPrint(
+        'TimelinePainter => '
+        'Title: ${ann.title}, '
+        'Date: ${ann.startDate}, '
+        'Icon: ${ann.iconName}',
+      );
+    }
+
+    // Draw the bottom axis line using your utility function
     drawTimelineAxis(canvas, size);
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
+    return false; 
   }
 }
 
 class TimelineView extends StatelessWidget {
-  const TimelineView({super.key});
+  final List<Annotation> annotationList;
+
+  const TimelineView({
+    Key? key,
+    required this.annotationList,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: TimelinePainter(),
+      painter: TimelinePainter(annotationList: annotationList),
       // The parent (earth_map_page) will size this widget as needed.
     );
   }
