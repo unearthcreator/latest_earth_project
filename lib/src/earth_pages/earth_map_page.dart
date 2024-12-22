@@ -41,6 +41,8 @@ class EarthMapPageState extends State<EarthMapPage> {
   bool _showSearchBar = false;
 
   List<String> _suggestions = [];
+   // Add this field:
+  List<String> _hiveUuidsForTimeline = [];
   Timer? _debounceTimer;
 
   final uuid = Uuid(); // for unique IDs
@@ -368,11 +370,6 @@ class EarthMapPageState extends State<EarthMapPage> {
       onPressed: () async {
         logger.i('Timeline button clicked');
 
-        // Toggle the canvas visibility (same as before).
-        setState(() {
-          _showTimelineCanvas = !_showTimelineCanvas;
-        });
-
         // 1) Query the map for visible annotation IDs.
         final annotationIds = await queryVisibleFeatures(
           context: context,
@@ -387,12 +384,16 @@ class EarthMapPageState extends State<EarthMapPage> {
         final hiveIds = _annotationsManager.annotationIdLinker
             .getHiveIdsForMultipleAnnotations(annotationIds);
 
-        // 3) Log out the Hive IDs we got back:
         logger.i('Got these Hive IDs from annotationIdLinker: $hiveIds');
         logger.i('Number of Hive IDs: ${hiveIds.length}');
 
-        // (Next step: fetch actual Annotation objects from Hive or do something
-        //  more sophisticated with these hiveIds.)
+        // 3) Save the result to our state field AND toggle the canvas:
+        setState(() {
+          // Flip the timeline on/off
+          _showTimelineCanvas = !_showTimelineCanvas;
+          // Store the IDs so the timeline can show them
+          _hiveUuidsForTimeline = hiveIds;
+        });
       },
       child: const Icon(Icons.timeline),
     ),
@@ -719,8 +720,10 @@ class EarthMapPageState extends State<EarthMapPage> {
     child: IgnorePointer(
       ignoring: false,
       child: Container(
-        // Remove the color since TimelinePainter draws white background
-        child: const TimelineView(),
+        // Pass the field from step #1
+        child: TimelineView(
+          hiveUuids: _hiveUuidsForTimeline,
+        ),
       ),
     ),
   );
