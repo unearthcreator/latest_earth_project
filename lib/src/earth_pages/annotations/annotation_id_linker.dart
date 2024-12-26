@@ -20,9 +20,7 @@ class AnnotationIdLinker {
   /// Registers a link between a Mapbox annotation ID and a Hive annotation ID.
   void registerAnnotationId(String mapAnnotationId, String hiveId) {
     _idMap[mapAnnotationId] = hiveId;
-    if (kDebugMode) {
       print('AnnotationIdLinker: Linked $mapAnnotationId to Hive ID: $hiveId');
-    }
   }
 
   /// Retrieves the Hive IDs for a list of Mapbox annotation IDs.
@@ -42,6 +40,7 @@ List<String> getHiveIdsForMultipleAnnotations(List<String> mapboxIds) {
   /// Retrieves the Hive ID for the given mapAnnotationId, if any.
   String? getHiveIdForAnnotation(String mapAnnotationId) {
     return _idMap[mapAnnotationId];
+    
   }
 
   /// Removes the link for a given mapAnnotationId, if it exists.

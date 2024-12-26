@@ -17,7 +17,7 @@ import 'package:map_mvp_project/models/annotation.dart'; // for Annotation model
 import 'package:map_mvp_project/src/earth_pages/dialogs/annotation_form_dialog.dart';
 // Import your timeline view
 import 'package:map_mvp_project/src/earth_pages/timeline/timeline.dart';
-import'package:map_mvp_project/src/earth_pages/annotations/annotation_id_linker.dart';
+import 'package:map_mvp_project/src/earth_pages/annotations/annotation_id_linker.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/map_queries.dart';
 
 class EarthMapPage extends StatefulWidget {
@@ -40,9 +40,12 @@ class EarthMapPageState extends State<EarthMapPage> {
   final TextEditingController _addressController = TextEditingController();
   bool _showSearchBar = false;
 
+  // For address suggestions
   List<String> _suggestions = [];
-   // Add this field:
+
+  // Store Hive UUIDs for timeline display
   List<String> _hiveUuidsForTimeline = [];
+
   Timer? _debounceTimer;
 
   final uuid = Uuid(); // for unique IDs
@@ -51,11 +54,11 @@ class EarthMapPageState extends State<EarthMapPage> {
   PointAnnotation? _annotationMenuAnnotation;
   Offset _annotationMenuOffset = Offset.zero;
 
-  bool _isDragging = false; 
+  bool _isDragging = false;
   String get _annotationButtonText => _isDragging ? 'Lock' : 'Move';
 
-  bool _isConnectMode = false; 
-  bool _showTimelineCanvas = false; 
+  bool _isConnectMode = false;
+  bool _showTimelineCanvas = false;
 
   @override
   void initState() {
@@ -72,6 +75,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   void _onAddressChanged() {
+    // Debounce the user's typing
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
       final query = _addressController.text.trim();
@@ -89,60 +93,68 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   Future<void> _onMapCreated(MapboxMap mapboxMap) async {
-  try {
-    logger.i('Starting map initialization');
-    _mapboxMap = mapboxMap;
+    try {
+      logger.i('Starting map initialization');
+      _mapboxMap = mapboxMap;
 
-    final annotationManager = await mapboxMap.annotations
-        .createPointAnnotationManager()
-        .onError((error, stackTrace) {
-      logger.e('Failed to create annotation manager', error: error, stackTrace: stackTrace);
-      throw Exception('Failed to initialize map annotations');
-    });
-
-    _localRepo = LocalAnnotationsRepository();
-    final annotationIdLinker = AnnotationIdLinker();
-
-    _annotationsManager = MapAnnotationsManager(
-      annotationManager,
-      annotationIdLinker: annotationIdLinker,
-      localAnnotationsRepository: _localRepo,
-    );
-
-    _gestureHandler = MapGestureHandler(
-      mapboxMap: mapboxMap,
-      annotationsManager: _annotationsManager,
-      context: context,
-      localAnnotationsRepository: _localRepo,
-      onAnnotationLongPress: _handleAnnotationLongPress,
-      onAnnotationDragUpdate: _handleAnnotationDragUpdate,
-      onDragEnd: _handleDragEnd,
-      onAnnotationRemoved: _handleAnnotationRemoved,
-      onConnectModeDisabled: () {
-        setState(() {
-          _isConnectMode = false;
-        });
-      },
-    );
-
-    logger.i('Map initialization completed successfully');
-
-    if (mounted) {
-      setState(() => _isMapReady = true);
-
-      // Now that the map is ready, load and place previously saved annotations
-      await _annotationsManager.loadAnnotationsFromHive(); 
-    }
-  } catch (e, stackTrace) {
-    logger.e('Error during map initialization', error: e, stackTrace: stackTrace);
-    if (mounted) {
-      setState(() {
-        _isError = true;
-        _errorMessage = 'Failed to initialize map: ${e.toString()}';
+      // Create the underlying Mapbox annotation manager:
+      final annotationManager = await mapboxMap.annotations
+          .createPointAnnotationManager()
+          .onError((error, stackTrace) {
+        logger.e('Failed to create annotation manager', error: error, stackTrace: stackTrace);
+        throw Exception('Failed to initialize map annotations');
       });
+
+      // Create a single LocalAnnotationsRepository
+      _localRepo = LocalAnnotationsRepository();
+
+      // Create a *single* shared AnnotationIdLinker instance
+      final annotationIdLinker = AnnotationIdLinker();
+
+      // Create our MapAnnotationsManager, passing the single linker
+      _annotationsManager = MapAnnotationsManager(
+        annotationManager,
+        annotationIdLinker: annotationIdLinker,
+        localAnnotationsRepository: _localRepo,
+      );
+
+      _gestureHandler = MapGestureHandler(
+        mapboxMap: mapboxMap,
+        annotationsManager: _annotationsManager,
+        context: context,
+        localAnnotationsRepository: _localRepo,
+        annotationIdLinker: annotationIdLinker, // <-- Pass it here
+        onAnnotationLongPress: _handleAnnotationLongPress,
+        onAnnotationDragUpdate: _handleAnnotationDragUpdate,
+        onDragEnd: _handleDragEnd,
+        onAnnotationRemoved: _handleAnnotationRemoved,
+        onConnectModeDisabled: () {
+          setState(() {
+            _isConnectMode = false;
+          });
+        },
+      );
+
+      logger.i('Map initialization completed successfully');
+
+      if (mounted) {
+        setState(() => _isMapReady = true);
+
+        // Now that the map is ready, load any previously saved Hive annotations
+        await _annotationsManager.loadAnnotationsFromHive();
+      }
+    } catch (e, stackTrace) {
+      logger.e('Error during map initialization', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        setState(() {
+          _isError = true;
+          _errorMessage = 'Failed to initialize map: ${e.toString()}';
+        });
+      }
     }
   }
-}
+
+  // ---------------------- Annotation UI & Callbacks ----------------------
 
   void _handleAnnotationLongPress(PointAnnotation annotation, Point annotationPosition) async {
     final screenPos = await _mapboxMap.pixelForCoordinate(annotationPosition);
@@ -162,7 +174,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   void _handleDragEnd() {
-    // no special action
+    // Drag ended - no special action here
   }
 
   void _handleAnnotationRemoved() {
@@ -219,8 +231,8 @@ class EarthMapPageState extends State<EarthMapPage> {
       return;
     }
 
-    final annotations = await _localRepo.getAnnotations();
-    Annotation ann = annotations.firstWhere((a) => a.id == hiveId, orElse: () => Annotation(id:'notFound'));
+    final allHiveAnnotations = await _localRepo.getAnnotations();
+    final ann = allHiveAnnotations.firstWhere((a) => a.id == hiveId, orElse: () => Annotation(id: 'notFound'));
 
     if (ann.id == 'notFound') {
       logger.w('Annotation not found in Hive.');
@@ -230,15 +242,15 @@ class EarthMapPageState extends State<EarthMapPage> {
     final title = ann.title ?? '';
     final startDate = ann.startDate ?? '';
     final note = ann.note ?? '';
-    final iconName = ann.iconName ?? 'cross'; 
-    IconData chosenIcon = Icons.star; 
+    final iconName = ann.iconName ?? 'cross';
+    IconData chosenIcon = Icons.star;
 
     final result = await showAnnotationFormDialog(
       context,
       title: title,
       chosenIcon: chosenIcon,
       date: startDate,
-      note: note, 
+      note: note,
     );
 
     if (result != null) {
@@ -256,17 +268,22 @@ class EarthMapPageState extends State<EarthMapPage> {
         note: updatedNote.isNotEmpty ? updatedNote : null,
         latitude: ann.latitude ?? 0.0,
         longitude: ann.longitude ?? 0.0,
-        imagePath: (updatedImagePath != null && updatedImagePath.isNotEmpty) ? updatedImagePath : ann.imagePath,
+        imagePath: (updatedImagePath != null && updatedImagePath.isNotEmpty) 
+                    ? updatedImagePath 
+                    : ann.imagePath,
       );
 
       await _localRepo.updateAnnotation(updatedAnnotation);
       logger.i('Annotation updated in Hive with id: ${ann.id}');
 
+      // Remove from map visually
       await _annotationsManager.removeAnnotation(_annotationMenuAnnotation!);
 
+      // Attempt to load the icon
       final iconBytes = await rootBundle.load('assets/icons/${updatedAnnotation.iconName ?? 'cross'}.png');
       final imageData = iconBytes.buffer.asUint8List();
 
+      // Add updated annotation visually
       final mapAnnotation = await _annotationsManager.addAnnotation(
         Point(coordinates: Position(updatedAnnotation.longitude ?? 0.0, updatedAnnotation.latitude ?? 0.0)),
         image: imageData,
@@ -274,6 +291,7 @@ class EarthMapPageState extends State<EarthMapPage> {
         date: updatedAnnotation.startDate ?? '',
       );
 
+      // Re-link
       _gestureHandler.registerAnnotationId(mapAnnotation.id, updatedAnnotation.id);
 
       setState(() {
@@ -285,6 +303,8 @@ class EarthMapPageState extends State<EarthMapPage> {
       logger.i('User cancelled edit.');
     }
   }
+
+  // ---------------------- UI Builders ----------------------
 
   Widget _buildErrorWidget() {
     return Center(
@@ -359,46 +379,44 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   Widget _buildTimelineButton() {
-  return Positioned(
-    top: 90,
-    left: 10,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        shape: const CircleBorder(),
-        padding: const EdgeInsets.all(8),
+    return Positioned(
+      top: 90,
+      left: 10,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(8),
+        ),
+        onPressed: () async {
+          logger.i('Timeline button clicked');
+
+          // 1) Query visible Mapbox annotation IDs
+          final annotationIds = await queryVisibleFeatures(
+            context: context,
+            isMapReady: _isMapReady,
+            mapboxMap: _mapboxMap,
+            annotationsManager: _annotationsManager,
+          );
+          logger.i('Received annotationIds from map_queries: $annotationIds');
+          logger.i('Number of IDs returned: ${annotationIds.length}');
+
+          // 2) Convert those mapbox IDs -> Hive IDs
+          final hiveIds = _annotationsManager.annotationIdLinker
+              .getHiveIdsForMultipleAnnotations(annotationIds);
+
+          logger.i('Got these Hive IDs from annotationIdLinker: $hiveIds');
+          logger.i('Number of Hive IDs: ${hiveIds.length}');
+
+          // 3) Toggle the timeline + store IDs so the timeline can show them
+          setState(() {
+            _showTimelineCanvas = !_showTimelineCanvas;
+            _hiveUuidsForTimeline = hiveIds;
+          });
+        },
+        child: const Icon(Icons.timeline),
       ),
-      onPressed: () async {
-        logger.i('Timeline button clicked');
-
-        // 1) Query the map for visible annotation IDs.
-        final annotationIds = await queryVisibleFeatures(
-          context: context,
-          isMapReady: _isMapReady,
-          mapboxMap: _mapboxMap,
-          annotationsManager: _annotationsManager,
-        );
-        logger.i('Received annotationIds from map_queries: $annotationIds');
-        logger.i('Number of IDs returned: ${annotationIds.length}');
-
-        // 2) Convert those mapbox IDs -> Hive IDs using the annotationIdLinker.
-        final hiveIds = _annotationsManager.annotationIdLinker
-            .getHiveIdsForMultipleAnnotations(annotationIds);
-
-        logger.i('Got these Hive IDs from annotationIdLinker: $hiveIds');
-        logger.i('Number of Hive IDs: ${hiveIds.length}');
-
-        // 3) Save the result to our state field AND toggle the canvas:
-        setState(() {
-          // Flip the timeline on/off
-          _showTimelineCanvas = !_showTimelineCanvas;
-          // Store the IDs so the timeline can show them
-          _hiveUuidsForTimeline = hiveIds;
-        });
-      },
-      child: const Icon(Icons.timeline),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildClearAnnotationsButton() {
     return Positioned(
@@ -406,11 +424,21 @@ class EarthMapPageState extends State<EarthMapPage> {
       right: 10,
       child: ElevatedButton(
         onPressed: () async {
-          logger.i('Clear button pressed - clearing all annotations from Hive.');
+          logger.i('Clear button pressed - clearing all annotations from Hive and from the map.');
+
+          // 1) Remove all from Hive
           final box = await Hive.openBox<Map>('annotationsBox');
           await box.clear();
+
+          logger.i('After clearing, the "annotationsBox" has ${box.length} items.');
           await box.close();
-          logger.i('Annotations cleared. Restart app or add new annotations.');
+          logger.i('Annotations cleared from Hive.');
+
+          // 2) Remove all from the map visually
+          await _annotationsManager.removeAllAnnotations();
+          logger.i('All annotations removed from the map.');
+
+          logger.i('Done clearing. You can now add new annotations.');
         },
         child: const Text('Clear Annotations'),
       ),
@@ -497,9 +525,7 @@ class EarthMapPageState extends State<EarthMapPage> {
                 ElevatedButton(
                   onPressed: () async {
                     final address = _addressController.text.trim();
-                    if (address.isEmpty) {
-                      return;
-                    }
+                    if (address.isEmpty) return;
 
                     final coords = await GeocodingService.fetchCoordinatesFromAddress(address);
                     if (coords != null) {
@@ -508,7 +534,6 @@ class EarthMapPageState extends State<EarthMapPage> {
                       final lng = coords['lng']!;
 
                       final geometry = Point(coordinates: Position(lng, lat));
-
                       final bytes = await rootBundle.load('assets/icons/cross.png');
                       final imageData = bytes.buffer.asUint8List();
 
@@ -535,8 +560,10 @@ class EarthMapPageState extends State<EarthMapPage> {
                       );
                       logger.i('Annotation placed at searched location.');
 
+                      // Link
                       _gestureHandler.registerAnnotationId(mapAnnotation.id, annotationId);
 
+                      // Move camera
                       _mapboxMap.setCamera(
                         CameraOptions(
                           center: geometry,
@@ -546,7 +573,7 @@ class EarthMapPageState extends State<EarthMapPage> {
                     } else {
                       logger.w('No coordinates found for the given address.');
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('No coordinates found for the given address.'))
+                        const SnackBar(content: Text('No coordinates found for the given address.')),
                       );
                     }
                   },
@@ -709,26 +736,23 @@ class EarthMapPageState extends State<EarthMapPage> {
     );
   }
 
- Widget _buildTimelineCanvas() {
-  if (!_showTimelineCanvas) return const SizedBox.shrink();
-  
-  return Positioned(
-    left: 76,
-    right: 76,
-    top: 19,
-    bottom: 19,
-    child: IgnorePointer(
-      ignoring: false,
-      child: Container(
-        // Pass the field from step #1
-        child: TimelineView(
-          hiveUuids: _hiveUuidsForTimeline,
+  Widget _buildTimelineCanvas() {
+    if (!_showTimelineCanvas) return const SizedBox.shrink();
+
+    return Positioned(
+      left: 76,
+      right: 76,
+      top: 19,
+      bottom: 19,
+      child: IgnorePointer(
+        ignoring: false,
+        child: Container(
+          // We pass the Hive IDs to the TimelineView
+          child: TimelineView(hiveUuids: _hiveUuidsForTimeline),
         ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

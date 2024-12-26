@@ -86,6 +86,16 @@ class MapAnnotationsManager {
     }
   }
 
+  Future<void> removeAllAnnotations() async {
+  if (_annotations.isNotEmpty) {
+    await _annotationManager.deleteAll();  // Removes from the map
+    _annotations.clear();                  // Clear our local tracking list
+    logger.i('All annotations removed from the map. Current count: ${_annotations.length}');
+  } else {
+    logger.i('No annotations to remove from the map.');
+  }
+}
+
   Future<void> updateVisualPosition(PointAnnotation annotation, Point newPoint) async {
     try {
       annotation.geometry = newPoint;
