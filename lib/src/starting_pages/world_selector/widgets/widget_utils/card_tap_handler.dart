@@ -12,6 +12,8 @@ void handleCardTap(BuildContext context, int index) {
       ),
     );
   } else {
-    logger.i('Unhandled card interaction at index $index.');
+    logger.i('Navigating to EarthCreatorPage from card index $index.');
+    // Use named route for the EarthCreatorPage
+    Navigator.pushNamed(context, '/earth_creator');
   }
 }

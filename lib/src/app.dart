@@ -3,7 +3,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:map_mvp_project/src/starting_pages/main_menu/main_menu.dart';
 import 'package:map_mvp_project/src/starting_pages/world_selector/world_selector.dart';
-import 'package:map_mvp_project/src/starting_pages/main_menu/options/options.dart'; // <-- Import your OptionsPage
+import 'package:map_mvp_project/src/starting_pages/main_menu/options/options.dart';
+import 'package:map_mvp_project/src/starting_pages/world_selector/earth_creator/earth_creator.dart'; // <-- Import EarthCreatorPage
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/l10n/app_localizations.dart';
 import 'package:map_mvp_project/providers/locale_provider.dart';
@@ -34,26 +35,28 @@ class MyApp extends ConsumerWidget {
         // The initial route is '/', which leads to MainMenuPage in the `routes` map.
         initialRoute: '/',
 
-        // A simple named-route map. 
-        // '/': MainMenuPage           -> The home/main menu screen
-        // '/world_selector':          -> Another screen for selecting worlds
-        // '/options':                 -> OptionsPage for localization & volume controls
+        // A simple named-route map:
+        //   '/':               -> MainMenuPage (the main/home menu)
+        //   '/world_selector': -> WorldSelectorPage (carousel of worlds)
+        //   '/options':        -> OptionsPage (localization & volume controls)
+        //   '/earth_creator':  -> EarthCreatorPage (create/edit new Earth scenarios)
         routes: {
           '/': (context) => const MainMenuPage(),
           '/world_selector': (context) => const WorldSelectorPage(),
-          '/options': (context) => const OptionsPage(), // <-- Add OptionsPage route
+          '/options': (context) => const OptionsPage(),
+          '/earth_creator': (context) => const EarthCreatorPage(), // <-- NEW ROUTE
         },
 
         // Hides the debug banner in the top-right corner.
         debugShowCheckedModeBanner: false,
 
-        // Sets the current locale from the provider. If null or no matching, defaults are used.
+        // Sets the current locale from the provider. 
+        // If null or unsupported, it falls back to your default configuration.
         locale: currentLocale,
 
-        // Localizations delegates: 
-        //  1. AppLocalizations.delegate provides your custom localized strings.
-        //  2. GlobalMaterialLocalizations, GlobalWidgetsLocalizations, 
-        //     and GlobalCupertinoLocalizations are from Flutter for general i18n support.
+        // Localizations delegates:
+        //  1. AppLocalizations.delegate for your custom strings
+        //  2. GlobalMaterialLocalizations, etc., for Flutter’s built-in i18n
         localizationsDelegates: const [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
@@ -61,7 +64,7 @@ class MyApp extends ConsumerWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
 
-        // The languages you explicitly support in your app.
+        // Supported locales in your app
         supportedLocales: const [
           Locale('en'),
           Locale('sv'),
@@ -69,12 +72,10 @@ class MyApp extends ConsumerWidget {
         ],
       );
     } catch (e, stackTrace) {
-      // STEP 3: If a build error occurs, log it (using your logger from error_handler).
-      // Typically, you'd rely on Flutter’s own error handling, but this ensures
-      // you capture more logs if needed.
+      // STEP 3: If a build error occurs, log it.
       logger.e('Error while building MyApp widget', error: e, stackTrace: stackTrace);
 
-      // In case of error, return an empty widget, or a fallback UI.
+      // Return a fallback UI on error.
       return const SizedBox();
     }
   }
