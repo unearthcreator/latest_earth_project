@@ -48,4 +48,4 @@ flutter:
   
   assets:
     - assets/icons/
-    - assets/animations/lottie/spinning_earth_animation.lottie
+    - assets/animations/lottie/
