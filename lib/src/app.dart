@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:map_mvp_project/src/starting_pages/main_menu/main_menu.dart';
 import 'package:map_mvp_project/src/starting_pages/world_selector/world_selector.dart';
+import 'package:map_mvp_project/src/starting_pages/main_menu/options/options.dart'; // <-- Import your OptionsPage
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/l10n/app_localizations.dart';
 import 'package:map_mvp_project/providers/locale_provider.dart';
@@ -34,11 +35,13 @@ class MyApp extends ConsumerWidget {
         initialRoute: '/',
 
         // A simple named-route map. 
-        // '/': MainMenuPage  -> The home/main menu screen
-        // '/world_selector': WorldSelectorPage -> Another screen for selecting worlds
+        // '/': MainMenuPage           -> The home/main menu screen
+        // '/world_selector':          -> Another screen for selecting worlds
+        // '/options':                 -> OptionsPage for localization & volume controls
         routes: {
           '/': (context) => const MainMenuPage(),
           '/world_selector': (context) => const WorldSelectorPage(),
+          '/options': (context) => const OptionsPage(), // <-- Add OptionsPage route
         },
 
         // Hides the debug banner in the top-right corner.
@@ -62,8 +65,6 @@ class MyApp extends ConsumerWidget {
         supportedLocales: const [
           Locale('en'),
           Locale('sv'),
-          // If you want US specifically, you can use Locale('en', 'US') 
-          // but be mindful about how you localize 'en' vs. 'en_US' strings.
           Locale('en', 'US'),
         ],
       );
@@ -74,8 +75,6 @@ class MyApp extends ConsumerWidget {
       logger.e('Error while building MyApp widget', error: e, stackTrace: stackTrace);
 
       // In case of error, return an empty widget, or a fallback UI.
-      // This is optional and might hide serious errors from the user, 
-      // but helps prevent hard crashes in release builds.
       return const SizedBox();
     }
   }
