@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:map_mvp_project/services/error_handler.dart'; // Import logger
+import 'package:map_mvp_project/services/error_handler.dart'; // For logging
 
 /// A reusable button widget that displays an icon along with a label.
 /// Used in main_menu.dart for navigation or other menu-related actions.
@@ -30,26 +30,27 @@ class MenuButton extends StatelessWidget {
       width: 250,
       height: 60,
       child: ElevatedButton.icon(
+        // 3) Use `ElevatedButton.styleFrom` for consistent styling.
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          backgroundColor: Colors.blueGrey[700],  // Button background
-          foregroundColor: Colors.white,           // Text & icon color
+          backgroundColor: Colors.blueGrey[700], // Background color of button
+          foregroundColor: Colors.white,         // General text/icon color
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16), // Rounded corners
           ),
         ),
-        // 3) Force the icon color to white (if needed, e.g. older Flutter versions).
+        // 4) Force the icon color to white to ensure consistency in older or custom themes.
         icon: Icon(
           icon,
           size: 24,
-          color: Colors.white, // Explicit override to ensure the icon is white
+          color: Colors.white,
         ),
-        // 4) The text label with a bold, 18 px font
+        // 5) The text label, styled in bold with a font size of 18.
         label: Text(
           label,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        // 5) The action that should occur on button press
+        // 6) The action that should occur on button press.
         onPressed: onPressed,
       ),
     );
