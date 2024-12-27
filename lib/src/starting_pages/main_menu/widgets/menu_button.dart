@@ -30,23 +30,26 @@ class MenuButton extends StatelessWidget {
       width: 250,
       height: 60,
       child: ElevatedButton.icon(
-        // 3) Apply styling to the button via ElevatedButton.styleFrom.
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          backgroundColor: Colors.blueGrey[700], // Hardcoded background color
-          foregroundColor: Colors.white,         // Text/icon color
+          backgroundColor: Colors.blueGrey[700],  // Button background
+          foregroundColor: Colors.white,           // Text & icon color
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16), // Rounded corners
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
-        // 4) Icon shown to the left, at size 24 px
-        icon: Icon(icon, size: 24),
-        // 5) The text label with a bold, 18 px font
+        // 3) Force the icon color to white (if needed, e.g. older Flutter versions).
+        icon: Icon(
+          icon,
+          size: 24,
+          color: Colors.white, // Explicit override to ensure the icon is white
+        ),
+        // 4) The text label with a bold, 18 px font
         label: Text(
           label,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        // 6) The action that should occur on button press
+        // 5) The action that should occur on button press
         onPressed: onPressed,
       ),
     );
