@@ -17,6 +17,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exit => 'Exit';
+
+  @override
+  String get language => 'Language';
+
+  @override
+  String get volume => 'Volume';
 }
 
 /// The translations for English, as used in the United States (`en_US`).
@@ -34,4 +40,10 @@ class AppLocalizationsEnUs extends AppLocalizationsEn {
 
   @override
   String get exit => 'Exit';
+
+  @override
+  String get language => 'Language (US)';
+
+  @override
+  String get volume => 'Volume (US)';
 }

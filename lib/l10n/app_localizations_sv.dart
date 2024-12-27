@@ -17,4 +17,10 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get exit => 'Avsluta';
+
+  @override
+  String get language => 'Språk';
+
+  @override
+  String get volume => 'Volym';
 }
