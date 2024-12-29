@@ -48,7 +48,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     // Example camera options for the “preview” globe
     final cameraOptionsForPreview = CameraOptions(
       center: Point(coordinates: Position(0.0, 0.0)),
-      zoom: 1.0,
+      zoom: 0.0,
       bearing: 0.0,
       pitch: 0.0,
     );
