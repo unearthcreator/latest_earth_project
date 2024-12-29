@@ -33,63 +33,104 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
   Widget build(BuildContext context) {
     logger.i('Building EarthCreatorPage');
 
+    // 1) We'll use LayoutBuilder to get the total available width,
+    //    so we can set the TextField to 25% of screen width.
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Earth'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // 1) Text field for "world name"
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'World Name',
-                hintText: 'Enter a name for your Earth',
+      // No AppBar here (removes "Create Earth" title).
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final screenWidth = constraints.maxWidth;
+            final textFieldWidth = screenWidth * 0.25;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // 2) Top-centered label "World Name"
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Text(
+                      'World Name',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 3) TextField at 25% of screen width, below "World Name"
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(
+                      width: textFieldWidth,
+                      child: TextField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter a name for your Earth',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // 4) Theme label + dropdown, aligned to top-right (but below text field).
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'Theme:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      DropdownButton<String>(
+                        value: _selectedTheme,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Light',
+                            child: Text('Light'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Dark',
+                            child: Text('Dark'),
+                          ),
+                        ],
+                        onChanged: (newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _selectedTheme = newValue;
+                            });
+                            logger.i('User selected theme: $newValue');
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 60),
+
+                  // 5) A "Save" button (centered by default in Column).
+                  ElevatedButton(
+                    onPressed: () {
+                      logger.i(
+                        'Save button clicked. (Name: ${_nameController.text}, '
+                        'Theme: $_selectedTheme)',
+                      );
+                      // Future: Actually persist the new Earth, etc.
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Save not yet implemented')),
+                      );
+                    },
+                    child: const Text('Save'),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // 2) A simple dropdown for choosing “Light” or “Dark” theme
-            Row(
-              children: [
-                const Text(
-                  'Theme:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 16),
-                DropdownButton<String>(
-                  value: _selectedTheme,
-                  items: const [
-                    DropdownMenuItem(value: 'Light', child: Text('Light')),
-                    DropdownMenuItem(value: 'Dark', child: Text('Dark')),
-                  ],
-                  onChanged: (newValue) {
-                    if (newValue != null) {
-                      setState(() {
-                        _selectedTheme = newValue;
-                      });
-                      logger.i('User selected theme: $newValue');
-                    }
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 40),
-
-            // 3) A "Save" button that does nothing yet
-            ElevatedButton(
-              onPressed: () {
-                logger.i('Save button clicked. (Name: ${_nameController.text}, Theme: $_selectedTheme)');
-                // Future: Actually persist the new Earth, etc.
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Save not yet implemented')),
-                );
-              },
-              child: const Text('Save'),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
