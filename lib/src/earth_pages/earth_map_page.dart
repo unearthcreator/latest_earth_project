@@ -337,7 +337,7 @@ class EarthMapPageState extends State<EarthMapPage> {
       },
       child: MapWidget(
         cameraOptions: MapConfig.defaultCameraOptions,
-        styleUri: MapConfig.styleUri,
+        styleUri: MapConfig.styleUriEarth,
         onMapCreated: _onMapCreated,
       ),
     );
