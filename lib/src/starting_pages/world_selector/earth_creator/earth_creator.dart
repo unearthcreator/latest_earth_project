@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
+import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart'; // Make sure you have the correct version
 
 class EarthCreatorPage extends StatefulWidget {
   const EarthCreatorPage({Key? key}) : super(key: key);
@@ -11,7 +13,7 @@ class EarthCreatorPage extends StatefulWidget {
 class _EarthCreatorPageState extends State<EarthCreatorPage> {
   final TextEditingController _nameController = TextEditingController();
 
-  // Dawn, Day, Dusk, Night
+  // Example themes: Dawn, Day, Dusk, Night
   String _selectedTheme = 'Day';
 
   @override
@@ -33,23 +35,21 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // We'll make the "globe" ~40% of the screen in both width and height.
+    // We'll make the "globe" ~40% of the screen in both width & height.
     final double globeW = screenWidth * 0.4;
     final double globeH = screenHeight * 0.4;
 
-    // We'll center the globe by calculating a top offset such that
-    // top = (screenHeight - globeH) / 2  (so it's vertically centered).
+    // Center the globe vertically:
     final double globeTop = (screenHeight - globeH) / 2;
 
-    // Similarly, if we want the "Theme" dropdown aligned with the globe's vertical center,
-    // we can pin it near (globeTop + globeH/2) minus half the dropdown's own height (~15).
+    // Align the theme dropdown with the globe's vertical center.
     final double themeVerticalCenter = globeTop + (globeH / 2) - 15;
 
     return Scaffold(
       body: SafeArea(
         child: Stack(
           children: [
-            // (1) BACK BUTTON top-left
+            // (1) Back button top-left
             Positioned(
               top: 16,
               left: 16,
@@ -62,7 +62,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (2) WORLD NAME top-center
+            // (2) World Name top-center
             Positioned(
               top: 16,
               left: 0,
@@ -83,26 +83,28 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (3) GLOBE PREVIEW in the absolute center (~40% W/H)
+            // (3) Globe preview (~40% W/H), centered
             Positioned(
               top: globeTop,
               left: (screenWidth - globeW) / 2, // horizontally center
-              child: Container(
+              child: SizedBox(
                 width: globeW,
                 height: globeH,
-                decoration: BoxDecoration(
-                  color: Colors.blueGrey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'Globe Preview\n(40% screen size)',
-                  textAlign: TextAlign.center,
+                child: MapWidget(
+                  // Use your “Default Globe” style:
+                  styleUri: MapConfig.styleUriGlobe,
+                  // Use your default camera config or something similar:
+                  cameraOptions: MapConfig.defaultCameraOptions,
+
+                  // If needed: onMapCreated, onStyleLoaded, etc.
+                  onMapCreated: (mapboxMap) {
+                    logger.i('EarthCreator: Map created for default globe preview.');
+                  },
                 ),
               ),
             ),
 
-            // (4) THEME pinned on the right, same vertical center as the globe
+            // (4) Theme pinned on the right, aligned with globe center
             Positioned(
               top: themeVerticalCenter,
               right: 16,
@@ -113,14 +115,15 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                     value: _selectedTheme,
                     items: const [
                       DropdownMenuItem(value: 'Dawn', child: Text('Dawn')),
-                      DropdownMenuItem(value: 'Day',  child: Text('Day')),
+                      DropdownMenuItem(value: 'Day', child: Text('Day')),
                       DropdownMenuItem(value: 'Dusk', child: Text('Dusk')),
-                      DropdownMenuItem(value: 'Night',child: Text('Night')),
+                      DropdownMenuItem(value: 'Night', child: Text('Night')),
                     ],
                     onChanged: (newValue) {
                       if (newValue != null) {
                         setState(() => _selectedTheme = newValue);
                         logger.i('User selected theme: $newValue');
+                        // Future: Possibly change style or camera for each theme
                       }
                     },
                   ),
@@ -133,7 +136,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (5) SAVE BUTTON bottom-center
+            // (5) Save button bottom-center
             Positioned(
               left: 0,
               right: 0,
@@ -145,6 +148,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                       'Save tapped. '
                       '(Name: ${_nameController.text}, Theme: $_selectedTheme)',
                     );
+                    // Future: Actually handle the user’s new Earth config
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Save not yet implemented')),
                     );
