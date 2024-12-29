@@ -11,7 +11,7 @@ class EarthCreatorPage extends StatefulWidget {
 class _EarthCreatorPageState extends State<EarthCreatorPage> {
   final TextEditingController _nameController = TextEditingController();
 
-  // Dawn, Day, Dusk, Night. Default to "Day"
+  // Dawn, Day, Dusk, Night
   String _selectedTheme = 'Day';
 
   @override
@@ -30,19 +30,26 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
   Widget build(BuildContext context) {
     logger.i('Building EarthCreatorPage');
 
-    // For sizing the “mini‐globe” at 40% of screen dimensions:
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final double globeWidth = screenWidth * 0.4;   // 40% of width
-    final double globeHeight = screenHeight * 0.4; // 40% of height
+
+    // We'll make the "globe" ~40% of the screen in both width and height.
+    final double globeW = screenWidth * 0.4;
+    final double globeH = screenHeight * 0.4;
+
+    // We'll center the globe by calculating a top offset such that
+    // top = (screenHeight - globeH) / 2  (so it's vertically centered).
+    final double globeTop = (screenHeight - globeH) / 2;
+
+    // Similarly, if we want the "Theme" dropdown aligned with the globe's vertical center,
+    // we can pin it near (globeTop + globeH/2) minus half the dropdown's own height (~15).
+    final double themeVerticalCenter = globeTop + (globeH / 2) - 15;
 
     return Scaffold(
-      // No AppBar; we'll place all elements manually in a Stack.
       body: SafeArea(
         child: Stack(
           children: [
-
-            /// (A) BACK BUTTON – top left
+            // (1) BACK BUTTON top-left
             Positioned(
               top: 16,
               left: 16,
@@ -55,11 +62,52 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            /// (B) THEME DROPDOWN – top right
+            // (2) WORLD NAME top-center
             Positioned(
               top: 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: SizedBox(
+                  width: screenWidth * 0.3,
+                  child: TextField(
+                    controller: _nameController,
+                    textAlign: TextAlign.center,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'World Name',
+                      border: UnderlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // (3) GLOBE PREVIEW in the absolute center (~40% W/H)
+            Positioned(
+              top: globeTop,
+              left: (screenWidth - globeW) / 2, // horizontally center
+              child: Container(
+                width: globeW,
+                height: globeH,
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey[200],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: const Text(
+                  'Globe Preview\n(40% screen size)',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+
+            // (4) THEME pinned on the right, same vertical center as the globe
+            Positioned(
+              top: themeVerticalCenter,
               right: 16,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButton<String>(
                     value: _selectedTheme,
@@ -79,60 +127,17 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                   const SizedBox(width: 8),
                   const Text(
                     'Theme',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
             ),
 
-            /// (C) WORLD NAME TEXTFIELD – top center
+            // (5) SAVE BUTTON bottom-center
             Positioned(
-              top: 16,
               left: 0,
               right: 0,
-              // Align to top center horizontally
-              child: Center(
-                child: SizedBox(
-                  width: screenWidth * 0.25, // 25% of screen width
-                  child: TextField(
-                    controller: _nameController,
-                    autofocus: true,
-                    textAlign: TextAlign.center,
-                    decoration: const InputDecoration(
-                      hintText: 'World Name',
-                      border: UnderlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            /// (D) MINI-GLOBE CONTAINER – truly centered
-            Center(
-              child: Container(
-                width: globeWidth,
-                height: globeHeight,
-                decoration: BoxDecoration(
-                  color: Colors.blueGrey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'Globe Preview\n(40% of screen)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.black),
-                ),
-              ),
-            ),
-
-            /// (E) SAVE BUTTON – bottom center
-            Positioned(
-              bottom: 16,
-              left: 0,
-              right: 0,
+              bottom: 40,
               child: Center(
                 child: ElevatedButton(
                   onPressed: () {
@@ -140,7 +145,6 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                       'Save tapped. '
                       '(Name: ${_nameController.text}, Theme: $_selectedTheme)',
                     );
-                    // Future: persist Earth config, then pop or navigate
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Save not yet implemented')),
                     );
