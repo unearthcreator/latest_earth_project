@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+// We'll prefix import to avoid collisions with Flutter's own `Visibility` widget
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as MB;
+
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
 
@@ -12,6 +14,7 @@ class EarthCreatorPage extends StatefulWidget {
 
 class _EarthCreatorPageState extends State<EarthCreatorPage> {
   final TextEditingController _nameController = TextEditingController();
+
   // Dawn, Day, Dusk, Night
   String _selectedTheme = 'Day';
 
@@ -41,12 +44,12 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     // Vertical offset for the globe so it's roughly centered.
     final double globeTop = (screenHeight - globeH) / 2;
 
-    // For the Theme dropdown, pinned at right, aligned with the globe's center.
+    // Pinned the theme dropdown at the right, aligned with the globe’s center.
     final double themeVerticalCenter = globeTop + (globeH / 2) - 15;
 
     // Example camera options for the “preview” globe
-    final cameraOptionsForPreview = CameraOptions(
-      center: Point(coordinates: Position(0.0, 0.0)),
+    final MB.CameraOptions cameraOptionsForPreview = MB.CameraOptions(
+      center: MB.Point(coordinates: MB.Position(0.0, 0.0)),
       zoom: 0.0,
       bearing: 0.0,
       pitch: 0.0,
@@ -97,33 +100,38 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               child: SizedBox(
                 width: globeW,
                 height: globeH,
-                child: MapWidget(
+                child: MB.MapWidget(
                   styleUri: MapConfig.styleUriGlobe,
                   cameraOptions: cameraOptionsForPreview,
-                  // We'll disable scale bar & remove/transparent the "sky" 
-                  // once the style has loaded.
-                  onMapCreated: (mapboxMap) async {
+
+                  /// We'll disable the scale bar and hide the sky 
+                  /// once the map is created & style is fully loaded.
+                  onMapCreated: (MB.MapboxMap mapboxMap) async {
                     logger.i('EarthCreator: Map created for default globe preview.');
 
-                    // (A) Hide the scale bar
+                    // 1) Disable the scale bar ornament
                     await mapboxMap.scaleBar.updateSettings(
-                      ScaleBarSettings(enabled: false),
+                      MB.ScaleBarSettings(enabled: false),
+                      
                     );
 
-                    // (B) Wait for the style to load before removing the sky layer.
-                    //     Some plugin versions use subscribeStyleLoaded / onStyleLoaded 
-                    //     or onStyleDataLoaded. Adjust if needed:
-                    mapboxMap.subscribeStyleLoaded((_) async {
-                      logger.i('Style loaded -> removing sky layer for transparency.');
                       try {
-                        // Attempt to remove the default "sky" layer
-                        await mapboxMap.style.removeLayer("sky");
-                        logger.i('Removed sky layer successfully — sky is now transparent.');
-                      } catch (err) {
-                        // Possibly the layer name is something else, or doesn't exist
-                        logger.e('Could not remove sky layer: $err');
+                        final style = mapboxMap.style;
+                        // Retrieve the existing layer named "sky"
+                        final layer = await style.getLayer("sky");
+                        if (layer is MB.SkyLayer) {
+                          // Set `visibility = NONE`
+                          layer.visibility = MB.Visibility.NONE;
+                          // Update that layer in the style
+                          await style.updateLayer(layer);
+                          logger.i('Successfully hid the sky layer (fully transparent).');
+                        } else {
+                          logger.w('No "sky" layer found or not a SkyLayer.');
+                        }
+                      } catch (e) {
+                        logger.e('Error hiding sky layer: $e');
                       }
-                    });
+              
                   },
                 ),
               ),
