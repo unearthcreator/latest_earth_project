@@ -12,7 +12,6 @@ class EarthCreatorPage extends StatefulWidget {
 
 class _EarthCreatorPageState extends State<EarthCreatorPage> {
   final TextEditingController _nameController = TextEditingController();
-
   // Dawn, Day, Dusk, Night
   String _selectedTheme = 'Day';
 
@@ -101,13 +100,30 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                 child: MapWidget(
                   styleUri: MapConfig.styleUriGlobe,
                   cameraOptions: cameraOptionsForPreview,
-                  // IMPERATIVE: We'll disable the scale bar once the map is created.
+                  // We'll disable scale bar & remove/transparent the "sky" 
+                  // once the style has loaded.
                   onMapCreated: (mapboxMap) async {
                     logger.i('EarthCreator: Map created for default globe preview.');
-                    // Hide the scale bar imperatively:
+
+                    // (A) Hide the scale bar
                     await mapboxMap.scaleBar.updateSettings(
                       ScaleBarSettings(enabled: false),
                     );
+
+                    // (B) Wait for the style to load before removing the sky layer.
+                    //     Some plugin versions use subscribeStyleLoaded / onStyleLoaded 
+                    //     or onStyleDataLoaded. Adjust if needed:
+                    mapboxMap.subscribeStyleLoaded((_) async {
+                      logger.i('Style loaded -> removing sky layer for transparency.');
+                      try {
+                        // Attempt to remove the default "sky" layer
+                        await mapboxMap.style.removeLayer("sky");
+                        logger.i('Removed sky layer successfully — sky is now transparent.');
+                      } catch (err) {
+                        // Possibly the layer name is something else, or doesn't exist
+                        logger.e('Could not remove sky layer: $err');
+                      }
+                    });
                   },
                 ),
               ),
