@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 class EarthCreatorPage extends StatefulWidget {
   const EarthCreatorPage({Key? key}) : super(key: key);
@@ -35,37 +35,29 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // We'll revert to the "large" globe container as it was (0.4 * screen).
+    // We'll make the "globe" ~40% of the screen in both width and height.
     final double globeW = screenWidth * 0.4;
     final double globeH = screenHeight * 0.4;
 
-    // We'll center the globe container in the screen.
+    // Vertical offset for the globe so it's roughly centered.
     final double globeTop = (screenHeight - globeH) / 2;
 
-    // If we want the "Theme" dropdown vertically centered with the globe:
+    // For the Theme dropdown, pinned at right, aligned with the globe's center.
     final double themeVerticalCenter = globeTop + (globeH / 2) - 15;
 
-    // Here’s how we can tweak the camera so the entire globe is visible:
-    //  - zoom: 0.0 => we see more of the globe
-    //  - padding: ensures extra space around edges
+    // Example camera options for the “preview” globe
     final cameraOptionsForPreview = CameraOptions(
       center: Point(coordinates: Position(0.0, 0.0)),
-      zoom: 0.0, // lower zoom => smaller globe => no cut-off
+      zoom: 1.0,
       bearing: 0.0,
       pitch: 0.0,
-      padding: MbxEdgeInsets(
-        top: 20.0,
-        bottom: 20.0,
-        left: 20.0,
-        right: 20.0,
-      ),
     );
 
     return Scaffold(
       body: SafeArea(
         child: Stack(
           children: [
-            // (1) BACK BUTTON top-left
+            // (1) BACK BUTTON (top-left)
             Positioned(
               top: 16,
               left: 16,
@@ -78,7 +70,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (2) WORLD NAME top-center
+            // (2) WORLD NAME (top-center)
             Positioned(
               top: 16,
               left: 0,
@@ -99,25 +91,29 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (3) GLOBE PREVIEW (~40% W/H), centered
+            // (3) MAPBOX GLOBE PREVIEW (~40% W/H), centered
             Positioned(
               top: globeTop,
-              left: (screenWidth - globeW) / 2, // horizontally center
+              left: (screenWidth - globeW) / 2,
               child: SizedBox(
                 width: globeW,
                 height: globeH,
-                // Use MapWidget or whichever custom widget you have:
                 child: MapWidget(
+                  styleUri: MapConfig.styleUriGlobe,
                   cameraOptions: cameraOptionsForPreview,
-                  styleUri: MapConfig.styleUriGlobe, // your "Default Globe" style
-                  onMapCreated: (mapboxMap) {
+                  // IMPERATIVE: We'll disable the scale bar once the map is created.
+                  onMapCreated: (mapboxMap) async {
                     logger.i('EarthCreator: Map created for default globe preview.');
+                    // Hide the scale bar imperatively:
+                    await mapboxMap.scaleBar.updateSettings(
+                      ScaleBarSettings(enabled: false),
+                    );
                   },
                 ),
               ),
             ),
 
-            // (4) THEME pinned on the right, same vertical center as the globe
+            // (4) THEME pinned on the right, aligned with the globe’s vertical center
             Positioned(
               top: themeVerticalCenter,
               right: 16,
@@ -157,7 +153,8 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                 child: ElevatedButton(
                   onPressed: () {
                     logger.i(
-                      'Save tapped. (Name: ${_nameController.text}, Theme: $_selectedTheme)',
+                      'Save tapped. '
+                      '(Name: ${_nameController.text}, Theme: $_selectedTheme)',
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Save not yet implemented')),
