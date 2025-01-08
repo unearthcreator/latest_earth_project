@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-// We'll prefix import to avoid collisions with Flutter's own `Visibility` widget
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as MB;
-
 import 'package:map_mvp_project/services/error_handler.dart';
-import 'package:map_mvp_project/src/earth_pages/utils/map_config.dart';
 
 class EarthCreatorPage extends StatefulWidget {
   const EarthCreatorPage({Key? key}) : super(key: key);
@@ -15,8 +11,8 @@ class EarthCreatorPage extends StatefulWidget {
 class _EarthCreatorPageState extends State<EarthCreatorPage> {
   final TextEditingController _nameController = TextEditingController();
 
-  // Dawn, Day, Dusk, Night
-  String _selectedTheme = 'Day';
+  // Possible theme choices
+  String _selectedTheme = 'Day'; // Dawn, Day, Dusk, Night
 
   @override
   void initState() {
@@ -30,6 +26,21 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     super.dispose();
   }
 
+  /// Returns the appropriate image path based on the user’s current theme selection.
+  String get _themeImagePath {
+    switch (_selectedTheme) {
+      case 'Dawn':
+        return 'assets/earth_snapshot/Dawn.png';
+      case 'Dusk':
+        return 'assets/earth_snapshot/Dusk.png';
+      case 'Night':
+        return 'assets/earth_snapshot/Night.png';
+      case 'Day':
+      default:
+        return 'assets/earth_snapshot/Day.png';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     logger.i('Building EarthCreatorPage');
@@ -37,29 +48,21 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // We'll make the "globe" ~40% of the screen in both width and height.
-    final double globeW = screenWidth * 0.4;
-    final double globeH = screenHeight * 0.4;
+    // We'll make the "preview" ~40% of the screen in both width and height.
+    final double previewW = screenWidth * 0.4;
+    final double previewH = screenHeight * 0.4;
 
-    // Vertical offset for the globe so it's roughly centered.
-    final double globeTop = (screenHeight - globeH) / 2;
+    // Vertical offset so it’s roughly centered.
+    final double previewTop = (screenHeight - previewH) / 2;
 
-    // Pinned the theme dropdown at the right, aligned with the globe’s center.
-    final double themeVerticalCenter = globeTop + (globeH / 2) - 15;
-
-    // Example camera options for the “preview” globe
-    final MB.CameraOptions cameraOptionsForPreview = MB.CameraOptions(
-      center: MB.Point(coordinates: MB.Position(0.0, 0.0)),
-      zoom: 0.0,
-      bearing: 0.0,
-      pitch: 0.0,
-    );
+    // Position the theme dropdown near the preview’s vertical center.
+    final double themeVerticalCenter = previewTop + (previewH / 2) - 15;
 
     return Scaffold(
       body: SafeArea(
         child: Stack(
           children: [
-            // (1) BACK BUTTON (top-left)
+            // (A) BACK BUTTON (top-left)
             Positioned(
               top: 16,
               left: 16,
@@ -72,7 +75,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (2) WORLD NAME (top-center)
+            // (B) WORLD NAME (top-center)
             Positioned(
               top: 16,
               left: 0,
@@ -93,51 +96,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (3) MAPBOX GLOBE PREVIEW (~40% W/H), centered
-            Positioned(
-              top: globeTop,
-              left: (screenWidth - globeW) / 2,
-              child: SizedBox(
-                width: globeW,
-                height: globeH,
-                child: MB.MapWidget(
-                  styleUri: MapConfig.styleUriGlobe,
-                  cameraOptions: cameraOptionsForPreview,
-
-                  /// We'll disable the scale bar and hide the sky 
-                  /// once the map is created & style is fully loaded.
-                  onMapCreated: (MB.MapboxMap mapboxMap) async {
-                    logger.i('EarthCreator: Map created for default globe preview.');
-
-                    // 1) Disable the scale bar ornament
-                    await mapboxMap.scaleBar.updateSettings(
-                      MB.ScaleBarSettings(enabled: false),
-                      
-                    );
-
-                      try {
-                        final style = mapboxMap.style;
-                        // Retrieve the existing layer named "sky"
-                        final layer = await style.getLayer("sky");
-                        if (layer is MB.SkyLayer) {
-                          // Set `visibility = NONE`
-                          layer.visibility = MB.Visibility.NONE;
-                          // Update that layer in the style
-                          await style.updateLayer(layer);
-                          logger.i('Successfully hid the sky layer (fully transparent).');
-                        } else {
-                          logger.w('No "sky" layer found or not a SkyLayer.');
-                        }
-                      } catch (e) {
-                        logger.e('Error hiding sky layer: $e');
-                      }
-              
-                  },
-                ),
-              ),
-            ),
-
-            // (4) THEME pinned on the right, aligned with the globe’s vertical center
+            // (C) THEME pinned on the right, aligned with preview’s vertical center
             Positioned(
               top: themeVerticalCenter,
               right: 16,
@@ -168,7 +127,24 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (5) SAVE BUTTON bottom-center
+            // (D) IMAGE PREVIEW (~40% W/H), centered
+            Positioned(
+              top: previewTop,
+              left: (screenWidth - previewW) / 2,
+              child: SizedBox(
+                width: previewW,
+                height: previewH,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    _themeImagePath,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+
+            // (E) SAVE BUTTON bottom-center
             Positioned(
               left: 0,
               right: 0,
