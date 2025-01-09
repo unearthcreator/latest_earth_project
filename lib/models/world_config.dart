@@ -1,0 +1,55 @@
+/// models/world_config.dart
+class WorldConfig {
+  /// A unique ID for this world (could be a UUID or similar).
+  final String id;
+
+  /// The user’s chosen name/title for the world.
+  final String name;
+
+  /// The map type, e.g. "standard" or "satellite".
+  final String mapType;
+
+  /// The time mode: "auto" = adjusts light preset after time, 
+  ///               "manual" = user picks a specific dawn/day/dusk/night.
+  final String timeMode;
+
+  /// The manual light preset, if timeMode == "manual". 
+  /// One of "Dawn"/"Day"/"Dusk"/"Night", or null if timeMode == "auto".
+  final String? manualTheme;
+
+  WorldConfig({
+    required this.id,
+    required this.name,
+    required this.mapType,    // "standard" or "satellite"
+    required this.timeMode,   // "auto" or "manual"
+    this.manualTheme,         // only relevant if timeMode == "manual"
+  });
+
+  /// Convert to JSON for storage (e.g. in Hive or another DB).
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'mapType': mapType,
+      'timeMode': timeMode,
+      'manualTheme': manualTheme,
+    };
+  }
+
+  /// Reconstruct from a JSON map.
+  factory WorldConfig.fromJson(Map<String, dynamic> json) {
+    return WorldConfig(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      mapType: json['mapType'] as String,
+      timeMode: json['timeMode'] as String,
+      manualTheme: json['manualTheme'] as String?,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'WorldConfig(id: $id, name: $name, mapType: $mapType, '
+           'timeMode: $timeMode, manualTheme: $manualTheme)';
+  }
+}

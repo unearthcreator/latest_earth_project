@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 
+// For generating a unique ID
+import 'package:uuid/uuid.dart';
+
+// Hypothetical repository/model imports (adjust paths as needed)
+import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
+import 'package:map_mvp_project/models/world_config.dart';
+
 class EarthCreatorPage extends StatefulWidget {
   const EarthCreatorPage({Key? key}) : super(key: key);
 
@@ -17,13 +24,17 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
   /// Whether the user wants Satellite map vs. Standard map.
   bool _isSatellite = false;
 
-  /// Manual choice of theme bracket if _adjustAfterTime == false.
-  String _selectedTheme = 'Day'; // options: Dawn, Day, Dusk, Night
+  /// Manual choice of theme bracket if [_adjustAfterTime] == false.
+  String _selectedTheme = 'Day'; // "Dawn", "Day", "Dusk", or "Night"
+
+  // A repository to store newly created worlds in Hive
+  late LocalWorldsRepository _worldConfigsRepo;
 
   @override
   void initState() {
     super.initState();
     logger.i('EarthCreatorPage initState');
+    _worldConfigsRepo = LocalWorldsRepository();
   }
 
   @override
@@ -45,13 +56,12 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     return 'Night';
   }
 
-  /// Build the image path based on standard vs. satellite and the bracket.
+  /// Based on the user’s toggles, compute the correct image asset path.
   String get _themeImagePath {
-    // 1) Figure out which bracket to use
+    // 1) Figure out the final bracket (auto vs. manual)
     final bracket = _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
 
-    // 2) If satellite is chosen, use "Satellite-Dawn.png" etc.
-    //    Otherwise, just "Dawn.png" etc.
+    // 2) If satellite is chosen, prefix "Satellite-"
     if (_isSatellite) {
       switch (bracket) {
         case 'Dawn':
@@ -80,6 +90,73 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     }
   }
 
+  /// Show an alert dialog if the user’s world name is invalid
+  void _showNameErrorDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Invalid Title'),
+          content: const Text('World Name must be between 3 and 20 characters.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Handle the Save button:
+  ///  1) Validate name length
+  ///  2) Construct & store a WorldConfig
+  ///  3) Pop the page if successful
+  Future<void> _handleSave() async {
+    final name = _nameController.text.trim();
+
+    // 1) Validate name
+    if (name.length < 3 || name.length > 20) {
+      _showNameErrorDialog();
+      return;
+    }
+
+    // 2) Determine which bracket is actually used
+    final bracket = _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
+
+    // 3) Determine map type
+    final mapType = _isSatellite ? 'satellite' : 'standard';
+
+    // 4) timeMode: "auto" if adjustAfterTime==true, else "manual"
+    final timeMode = _adjustAfterTime ? 'auto' : 'manual';
+
+    // 5) If timeMode == 'manual', store bracket in manualTheme; else null
+    final manualTheme = (timeMode == 'manual') ? bracket : null;
+
+    // 6) Build the WorldConfig object
+    final worldId = const Uuid().v4();
+    final newWorldConfig = WorldConfig(
+      id: worldId,
+      name: name,
+      mapType: mapType,
+      timeMode: timeMode,
+      manualTheme: manualTheme,
+    );
+
+    // 7) Save to Hive
+    try {
+      await _worldConfigsRepo.addWorldConfig(newWorldConfig);
+      logger.i('Saved new WorldConfig with ID=$worldId: $newWorldConfig');
+      Navigator.pop(context); // Return to the previous screen
+    } catch (e, stackTrace) {
+      logger.e('Error saving new WorldConfig', error: e, stackTrace: stackTrace);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: failed to save world config')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     logger.i('Building EarthCreatorPage');
@@ -90,15 +167,13 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     // ~40% of screen for the preview
     final double previewW = screenWidth * 0.4;
     final double previewH = screenHeight * 0.4;
-
-    // Center it vertically
     final double previewTop = (screenHeight - previewH) / 2;
 
     // We'll pin toggles near the top-right
     const double togglesTop = 60.0;
     const double togglesRight = 16.0;
 
-    // If manual dropdown is needed, place it somewhat below the toggles.
+    // If manual dropdown is needed, place it somewhat below the toggles
     const double dropdownTop = togglesTop + 80;
     const double dropdownRight = 16.0;
 
@@ -140,23 +215,25 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (C) Toggle row (top-right) for Satellite vs Standard, and "Adjust by Time"
+            // (C) Toggle row (top-right) for Satellite/Standard, and "Adjust by Time"
             Positioned(
               top: togglesTop,
               right: togglesRight,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Satellite / Standard
+                  // Satellite vs. Standard, with toggled label
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Satellite'),
+                      Text(_isSatellite ? 'Satellite' : 'Standard'),
                       Switch(
                         value: _isSatellite,
                         onChanged: (newVal) {
                           setState(() => _isSatellite = newVal);
-                          logger.i('Satellite toggled -> $_isSatellite');
+                          logger.i(
+                            'Map type toggled -> ${_isSatellite ? "Satellite" : "Standard"}',
+                          );
                         },
                       ),
                     ],
@@ -216,7 +293,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.asset(
-                    _themeImagePath,
+                    _themeImagePath, // <--- Show actual image from logic above
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -230,22 +307,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               bottom: 40,
               child: Center(
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Final bracket: either from local time or manual dropdown
-                    final bracket = _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
-                    final styleType = _isSatellite ? 'Satellite' : 'Standard';
-
-                    logger.i(
-                      'Save tapped. '
-                      'Name: ${_nameController.text}, '
-                      'Bracket: $bracket, Style: $styleType',
-                    );
-
-                    // Future: persist or pass this data onward
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Save not yet implemented')),
-                    );
-                  },
+                  onPressed: _handleSave,
                   child: const Text('Save'),
                 ),
               ),
