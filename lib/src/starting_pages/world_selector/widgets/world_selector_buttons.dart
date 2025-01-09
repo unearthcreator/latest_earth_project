@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 
 class WorldSelectorButtons extends StatelessWidget {
-  const WorldSelectorButtons({super.key});
+  /// Callback to invoke when the user taps "Clear All" worlds
+  final VoidCallback? onClearAll;
+
+  const WorldSelectorButtons({
+    super.key,
+    this.onClearAll,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,27 +19,36 @@ class WorldSelectorButtons extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // (A) Back button on the left
           IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
               try {
-                Navigator.pop(context); // Navigate back to MainMenuPage
-                logger.i('WorldSelectorButtons: Back button pressed, navigating to MainMenuPage');
+                Navigator.pop(context);
+                logger.i('WorldSelectorButtons: Back button pressed -> pop');
               } catch (e, stackTrace) {
-                logger.e('WorldSelectorButtons: Error navigating back to MainMenuPage', error: e, stackTrace: stackTrace);
+                logger.e(
+                  'WorldSelectorButtons: Error navigating back',
+                  error: e,
+                  stackTrace: stackTrace,
+                );
               }
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings),
+
+          // (B) "Clear All" ElevatedButton on the right
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,    // Red background
+              foregroundColor: Colors.white,  // White text/icons
+            ),
             onPressed: () {
-              try {
-                logger.i('WorldSelectorButtons: Settings button pressed');
-                // Future: Add settings functionality here
-              } catch (e, stackTrace) {
-                logger.e('WorldSelectorButtons: Error handling settings action', error: e, stackTrace: stackTrace);
+              logger.i('Clear All Worlds button tapped');
+              if (onClearAll != null) {
+                onClearAll!();  // call the passed-in callback
               }
             },
+            child: const Text('Clear all worlds'),
           ),
         ],
       ),

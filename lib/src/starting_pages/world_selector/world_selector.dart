@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart'; // <-- for directly inspecting the box
+import 'package:map_mvp_project/models/world_config.dart';
+import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/starting_pages/world_selector/widgets/carousel.dart';
 import 'package:map_mvp_project/src/starting_pages/world_selector/widgets/world_selector_buttons.dart';
 
-// Hypothetical imports for your local worlds repository & model
-import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
-import 'package:map_mvp_project/models/world_config.dart';
-
-/// A page that allows the user to select which "world" (scenario) to enter.
-/// It uses a button row at the top (WorldSelectorButtons) and a carousel
-/// (CarouselWidget) in the main body to showcase selectable worlds.
 class WorldSelectorPage extends StatefulWidget {
   const WorldSelectorPage({super.key});
 
@@ -20,10 +16,10 @@ class WorldSelectorPage extends StatefulWidget {
 class _WorldSelectorPageState extends State<WorldSelectorPage> {
   late LocalWorldsRepository _worldsRepo;
 
-  /// We’ll store the fetched worlds here.
+  /// We'll store the fetched worlds here after loading from Hive.
   List<WorldConfig> _worldConfigs = [];
 
-  /// Simple loading/error handling flags
+  /// Simple loading/error-handling flags
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -31,13 +27,12 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
   void initState() {
     super.initState();
     logger.i('WorldSelectorPage initState -> initializing repo, fetching worlds');
-    _worldsRepo = LocalWorldsRepository(); // or however you instantiate
+    _worldsRepo = LocalWorldsRepository();
 
     _fetchAllWorlds();
   }
 
-  /// Fetches all stored WorldConfig items from Hive
-  /// and logs them for debugging.
+  /// Fetches all stored WorldConfig items from Hive and logs them for debugging.
   Future<void> _fetchAllWorlds() async {
     setState(() {
       _isLoading = true;
@@ -61,11 +56,46 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
     }
   }
 
+  /// Called when user taps "Clear All Worlds"
+  Future<void> _handleClearAllWorlds() async {
+    try {
+      // 1) Clear all worlds from the repository
+      await _worldsRepo.clearAllWorldConfigs();
+      logger.i('Cleared all worlds from Hive.');
+
+      // 2) Immediately check the box contents to confirm
+      const boxName = 'worldConfigsBox'; // same as in LocalWorldsRepository
+      final testBox = await Hive.openBox<Map>(boxName);
+      logger.i('Box length after clearing: ${testBox.length}');
+      for (final key in testBox.keys) {
+        logger.i('Remaining key=$key => value=${testBox.get(key)}');
+      }
+      await testBox.close();
+
+      // 3) Re-fetch to update our UI state
+      await _fetchAllWorlds();
+
+      // 4) Optionally show a quick confirmation
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All worlds cleared.')),
+        );
+      }
+    } catch (e, stackTrace) {
+      logger.e('Error clearing worlds', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to clear all worlds.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     logger.i('Building WorldSelectorPage widget');
 
-    // 1) If currently loading, show a simple spinner
+    // 1) If currently loading, show a spinner
     if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -76,37 +106,35 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
     if (_errorMessage != null) {
       return Scaffold(
         body: Center(
-          child: Text(_errorMessage!,
-              style: const TextStyle(color: Colors.red, fontSize: 16)),
+          child: Text(
+            _errorMessage!,
+            style: const TextStyle(color: Colors.red, fontSize: 16),
+          ),
         ),
       );
     }
 
+    // 3) Normal UI path
     try {
-      // 3) If we have worlds (or none), we continue with normal UI
-
-      // Calculate carousel height
       final double screenHeight = MediaQuery.of(context).size.height;
       final double availableHeight = screenHeight - 56 - 40;
-
-      logger.d(
-        'Screen height: $screenHeight, Available height for carousel: $availableHeight',
-      );
+      logger.d('Screen height=$screenHeight, availableHeight=$availableHeight');
 
       return Scaffold(
         body: Column(
           children: [
-            // A row of buttons at the top
-            const WorldSelectorButtons(),
+            // (A) A row of buttons at the top (with “Clear All Worlds”)
+            WorldSelectorButtons(
+              onClearAll: _handleClearAllWorlds,
+            ),
 
-            // The carousel in the remaining space
+            // (B) The carousel in the remaining space
             Expanded(
               child: Center(
                 child: CarouselWidget(
                   availableHeight: availableHeight,
-                  // In the future, you might pass _worldConfigs here
-                  // if you want the carousel to reflect existing worlds:
-                  // e.g.  carouselWorlds: _worldConfigs,
+                  // You could pass _worldConfigs here in the future
+                  // if you want to reflect actual stored worlds in the carousel
                 ),
               ),
             ),
