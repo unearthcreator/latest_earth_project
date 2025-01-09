@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart'; // <-- for directly inspecting the box
+import 'package:hive/hive.dart'; // for directly inspecting the box if needed
 import 'package:map_mvp_project/models/world_config.dart';
 import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/starting_pages/world_selector/widgets/carousel.dart';
 import 'package:map_mvp_project/src/starting_pages/world_selector/widgets/world_selector_buttons.dart';
+
+// Hypothetical import for "last used index" preferences
+import 'package:map_mvp_project/repositories/local_app_preferences.dart';
 
 class WorldSelectorPage extends StatefulWidget {
   const WorldSelectorPage({super.key});
@@ -23,13 +26,38 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  /// This will be the index we pass to the Carousel as the starting centered card.
+  /// Default to 4 if we can't find anything else.
+  int _carouselInitialIndex = 4;
+
   @override
   void initState() {
     super.initState();
-    logger.i('WorldSelectorPage initState -> initializing repo, fetching worlds');
+    logger.i('WorldSelectorPage initState: set up repo, fetch worlds, load index');
     _worldsRepo = LocalWorldsRepository();
 
+    // 1) Fetch the worlds from Hive
     _fetchAllWorlds();
+
+    // 2) Load the "last used" index from app preferences (if any)
+    //    We'll do this asynchronously; fallback to 4 if not found.
+    _loadLastUsedIndex();
+  }
+
+  /// Asynchronously fetch the "last used" index from your local app prefs
+  /// Then set _carouselInitialIndex accordingly.
+  Future<void> _loadLastUsedIndex() async {
+    try {
+      // Suppose your LocalAppPreferences returns an int or throws if none.
+      final idx = await LocalAppPreferences.getLastUsedCarouselIndex();
+      logger.i('Got lastUsedCarouselIndex=$idx from prefs');
+      if (mounted) {
+        setState(() => _carouselInitialIndex = idx);
+      }
+    } catch (e) {
+      logger.w('Could not read lastUsedCarouselIndex: $e. Fallback=4.');
+      // Keep default of 4
+    }
   }
 
   /// Fetches all stored WorldConfig items from Hive and logs them for debugging.
@@ -63,19 +91,13 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
       await _worldsRepo.clearAllWorldConfigs();
       logger.i('Cleared all worlds from Hive.');
 
-      // 2) Immediately check the box contents to confirm
-      const boxName = 'worldConfigsBox'; // same as in LocalWorldsRepository
-      final testBox = await Hive.openBox<Map>(boxName);
-      logger.i('Box length after clearing: ${testBox.length}');
-      for (final key in testBox.keys) {
-        logger.i('Remaining key=$key => value=${testBox.get(key)}');
-      }
-      await testBox.close();
-
-      // 3) Re-fetch to update our UI state
+      // 2) Re-fetch to update our UI state
       await _fetchAllWorlds();
 
-      // 4) Optionally show a quick confirmation
+      // 3) Also reset the stored "last used index" if you want
+      await LocalAppPreferences.setLastUsedCarouselIndex(4);
+
+      // 4) Show a quick confirmation
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('All worlds cleared.')),
@@ -118,7 +140,14 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
     try {
       final double screenHeight = MediaQuery.of(context).size.height;
       final double availableHeight = screenHeight - 56 - 40;
-      logger.d('Screen height=$screenHeight, availableHeight=$availableHeight');
+      logger.d('ScreenHeight=$screenHeight, availableHeight=$availableHeight');
+
+      // If user has zero worlds, we can optionally revert to 4 or do something else
+      if (_worldConfigs.isEmpty) {
+        logger.i('No worlds found, defaulting the carousel index to 4.');
+        _carouselInitialIndex = 4;
+      }
+      // Otherwise we keep _carouselInitialIndex from either Hive prefs or fallback.
 
       return Scaffold(
         body: Column(
@@ -133,8 +162,10 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
               child: Center(
                 child: CarouselWidget(
                   availableHeight: availableHeight,
-                  // You could pass _worldConfigs here in the future
-                  // if you want to reflect actual stored worlds in the carousel
+                  // Pass the chosen index so it starts centered on that card
+                  initialIndex: _carouselInitialIndex,
+                  // In future, you might pass _worldConfigs or something similar here
+                  // to display real worlds in the carousel if desired.
                 ),
               ),
             ),
