@@ -13,7 +13,11 @@ void handleCardTap(BuildContext context, int index) {
     );
   } else {
     logger.i('Navigating to EarthCreatorPage from card index $index.');
-    // Use named route for the EarthCreatorPage
-    Navigator.pushNamed(context, '/earth_creator');
+    // Pass the index as the `arguments` to your named route:
+    Navigator.pushNamed(
+      context,
+      '/earth_creator',
+      arguments: index,  // <--- Passing the tapped card’s index here
+    );
   }
 }
