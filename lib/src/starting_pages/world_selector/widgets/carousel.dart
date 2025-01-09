@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/earth_map_page.dart';
+// Import your EarthCreatorPage file so you can do EarthCreatorPage(...)
+import 'package:map_mvp_project/src/starting_pages/world_selector/earth_creator/earth_creator.dart';
 
 /// A carousel displaying cards. Each card can be tapped to trigger an action:
-/// - Only the centered (current) card performs actions when tapped.
-///   - If index == 4 and it's centered, go to EarthMapPage.
-///   - Otherwise, if it's centered but not index==4, we navigate to EarthCreatorPage.
+/// - Only the centered (current) card does something when tapped.
+///   - If index == 4 and it's centered => go to EarthMapPage.
+///   - Otherwise, if it's centered but not index==4, we navigate to EarthCreatorPage
+///     and pass the index for storing in the new world’s config.
 /// - Tapping a non-centered card just logs a message (no action).
 class CarouselWidget extends StatefulWidget {
   final double availableHeight;
@@ -42,7 +45,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
         },
       ),
       itemBuilder: (context, index, realIdx) {
-        // The card is fully opaque if it's centered; otherwise, translucent.
+        // The card is fully opaque if it's the current (centered) one; otherwise translucent.
         final double opacity = (index == _currentIndex) ? 1.0 : 0.2;
 
         return GestureDetector(
@@ -60,11 +63,19 @@ class _CarouselWidgetState extends State<CarouselWidget> {
                 );
               } else {
                 // "Unearth" scenario
-                logger.i('Navigating to EarthCreatorPage from card index $index.');
-                Navigator.pushNamed(context, '/earth_creator');
+                logger.i('Navigating to EarthCreatorPage, passing index=$index.');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EarthCreatorPage(carouselIndex: index),
+                  ),
+                );
               }
             } else {
-              logger.i('Tapped card at index $index but it is not centered. No action.');
+              // Tapped a non-centered card => no action
+              logger.i(
+                'Tapped card at index $index but it is not centered. No action taken.',
+              );
             }
           },
           child: Opacity(
