@@ -1,5 +1,3 @@
-/// repositories/hive_world_config_repository.dart
-
 import 'package:map_mvp_project/models/world_config.dart';
 import 'package:map_mvp_project/repositories/i_world_config_repository.dart';
 import 'package:hive/hive.dart';
@@ -26,8 +24,8 @@ class LocalWorldsRepository implements IWorldConfigRepository {
   @override
   Future<List<WorldConfig>> getAllWorldConfigs() async {
     final box = await Hive.openBox<Map>(_boxName);
-    final allValues = box.values.map((e) => 
-       WorldConfig.fromJson(Map<String, dynamic>.from(e))
+    final allValues = box.values.map(
+      (mapValue) => WorldConfig.fromJson(Map<String, dynamic>.from(mapValue))
     ).toList();
     await box.close();
     return allValues;
@@ -44,6 +42,14 @@ class LocalWorldsRepository implements IWorldConfigRepository {
   Future<void> removeWorldConfig(String id) async {
     final box = await Hive.openBox<Map>(_boxName);
     await box.delete(id);
+    await box.close();
+  }
+
+  /// New method to clear all WorldConfigs in the box.
+  /// Great for testing or providing a "reset" feature in the UI.
+  Future<void> clearAllWorldConfigs() async {
+    final box = await Hive.openBox<Map>(_boxName);
+    await box.clear();
     await box.close();
   }
 }
