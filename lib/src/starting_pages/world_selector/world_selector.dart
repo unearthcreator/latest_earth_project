@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart'; // for directly inspecting the box if needed
+import 'package:hive/hive.dart'; // <-- if you still want direct box inspection
 import 'package:map_mvp_project/models/world_config.dart';
 import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
@@ -27,36 +27,35 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
   String? _errorMessage;
 
   /// This will be the index we pass to the Carousel as the starting centered card.
-  /// Default to 4 if we can't find anything else.
+  /// Default to 4 if we can’t find anything else or if user has no worlds.
   int _carouselInitialIndex = 4;
 
   @override
   void initState() {
     super.initState();
-    logger.i('WorldSelectorPage initState: set up repo, fetch worlds, load index');
+    logger.i('WorldSelectorPage initState: setting up repo, fetch worlds, load index');
+
     _worldsRepo = LocalWorldsRepository();
 
-    // 1) Fetch the worlds from Hive
+    // 1) Fetch the worlds from Hive.
     _fetchAllWorlds();
 
-    // 2) Load the "last used" index from app preferences (if any)
-    //    We'll do this asynchronously; fallback to 4 if not found.
+    // 2) Load the "last used" index from local app prefs (if any).
     _loadLastUsedIndex();
   }
 
   /// Asynchronously fetch the "last used" index from your local app prefs
-  /// Then set _carouselInitialIndex accordingly.
+  /// and set _carouselInitialIndex accordingly.
   Future<void> _loadLastUsedIndex() async {
     try {
-      // Suppose your LocalAppPreferences returns an int or throws if none.
       final idx = await LocalAppPreferences.getLastUsedCarouselIndex();
       logger.i('Got lastUsedCarouselIndex=$idx from prefs');
       if (mounted) {
         setState(() => _carouselInitialIndex = idx);
       }
     } catch (e) {
-      logger.w('Could not read lastUsedCarouselIndex: $e. Fallback=4.');
-      // Keep default of 4
+      // If reading fails or no value found, we keep default of 4.
+      logger.w('Could not read lastUsedCarouselIndex: $e. Using default=4.');
     }
   }
 
@@ -94,10 +93,10 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
       // 2) Re-fetch to update our UI state
       await _fetchAllWorlds();
 
-      // 3) Also reset the stored "last used index" if you want
+      // 3) Also reset the stored "last used index"
       await LocalAppPreferences.setLastUsedCarouselIndex(4);
 
-      // 4) Show a quick confirmation
+      // 4) Quick confirmation
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('All worlds cleared.')),
@@ -136,23 +135,23 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
       );
     }
 
-    // 3) Normal UI path
+    // 3) Normal UI path:
     try {
       final double screenHeight = MediaQuery.of(context).size.height;
       final double availableHeight = screenHeight - 56 - 40;
       logger.d('ScreenHeight=$screenHeight, availableHeight=$availableHeight');
 
-      // If user has zero worlds, we can optionally revert to 4 or do something else
+      // If user has zero worlds, fallback to index=4 (the middle).
+      // Otherwise, we respect the lastUsedCarouselIndex from app prefs.
       if (_worldConfigs.isEmpty) {
-        logger.i('No worlds found, defaulting the carousel index to 4.');
+        logger.i('No worlds found -> forcing carousel index=4');
         _carouselInitialIndex = 4;
       }
-      // Otherwise we keep _carouselInitialIndex from either Hive prefs or fallback.
 
       return Scaffold(
         body: Column(
           children: [
-            // (A) A row of buttons at the top (with “Clear All Worlds”)
+            // (A) A row of buttons at the top (with “Clear All Worlds”).
             WorldSelectorButtons(
               onClearAll: _handleClearAllWorlds,
             ),
@@ -162,10 +161,7 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
               child: Center(
                 child: CarouselWidget(
                   availableHeight: availableHeight,
-                  // Pass the chosen index so it starts centered on that card
                   initialIndex: _carouselInitialIndex,
-                  // In future, you might pass _worldConfigs or something similar here
-                  // to display real worlds in the carousel if desired.
                 ),
               ),
             ),

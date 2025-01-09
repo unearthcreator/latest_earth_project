@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:uuid/uuid.dart'; // For generating a unique ID
+
+// Your repositories and models
 import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
 import 'package:map_mvp_project/models/world_config.dart';
+
+// <-- Import your local app preferences helper
+import 'package:map_mvp_project/repositories/local_app_preferences.dart';
 
 class EarthCreatorPage extends StatefulWidget {
   /// The carousel card index this "new world" is associated with.
@@ -138,21 +143,26 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
 
     final worldId = const Uuid().v4();
 
-    // IMPORTANT: Use widget.carouselIndex
+    // Use widget.carouselIndex
     final newWorldConfig = WorldConfig(
       id: worldId,
       name: name,
       mapType: mapType,
       timeMode: timeMode,
       manualTheme: manualTheme,
-      carouselIndex: widget.carouselIndex, // <-- set the index properly
+      carouselIndex: widget.carouselIndex,
     );
 
     try {
+      // 1) Save the new world config in Hive
       await _worldConfigsRepo.addWorldConfig(newWorldConfig);
       logger.i('Saved new WorldConfig with ID=$worldId: $newWorldConfig');
 
-      // Go back to the previous screen (WorldSelector, presumably)
+      // 2) Also store *this* card index in your "app preferences" for later
+      //    so the World Selector can center on it again if we leave/return
+      await LocalAppPreferences.setLastUsedCarouselIndex(widget.carouselIndex);
+
+      // 3) Go back to the previous screen (WorldSelector)
       Navigator.pop(context);
     } catch (e, stackTrace) {
       logger.e('Error saving new WorldConfig', error: e, stackTrace: stackTrace);
@@ -186,7 +196,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // (A) BACK BUTTON top-left
+            // (A) BACK BUTTON (top-left)
             Positioned(
               top: 16,
               left: 16,
@@ -236,9 +246,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                         value: _isSatellite,
                         onChanged: (newVal) {
                           setState(() => _isSatellite = newVal);
-                          logger.i(
-                            'Map type toggled -> ${_isSatellite ? "Satellite" : "Standard"}',
-                          );
+                          logger.i('Map type toggled -> ${_isSatellite ? "Satellite" : "Standard"}');
                         },
                       ),
                     ],
