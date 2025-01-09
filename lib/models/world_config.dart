@@ -9,13 +9,16 @@ class WorldConfig {
   /// The map type, e.g. "standard" or "satellite".
   final String mapType;
 
-  /// The time mode: "auto" = adjusts light preset after time, 
+  /// The time mode: "auto" = adjusts light preset after time,
   ///               "manual" = user picks a specific dawn/day/dusk/night.
   final String timeMode;
 
-  /// The manual light preset, if timeMode == "manual". 
+  /// The manual light preset, if timeMode == "manual".
   /// One of "Dawn"/"Day"/"Dusk"/"Night", or null if timeMode == "auto".
   final String? manualTheme;
+
+  /// Which carousel index this world is associated with.
+  final int carouselIndex;
 
   WorldConfig({
     required this.id,
@@ -23,6 +26,7 @@ class WorldConfig {
     required this.mapType,    // "standard" or "satellite"
     required this.timeMode,   // "auto" or "manual"
     this.manualTheme,         // only relevant if timeMode == "manual"
+    required this.carouselIndex,
   });
 
   /// Convert to JSON for storage (e.g. in Hive or another DB).
@@ -33,6 +37,7 @@ class WorldConfig {
       'mapType': mapType,
       'timeMode': timeMode,
       'manualTheme': manualTheme,
+      'carouselIndex': carouselIndex,
     };
   }
 
@@ -44,12 +49,19 @@ class WorldConfig {
       mapType: json['mapType'] as String,
       timeMode: json['timeMode'] as String,
       manualTheme: json['manualTheme'] as String?,
+      carouselIndex: json['carouselIndex'] as int,
     );
   }
 
   @override
   String toString() {
-    return 'WorldConfig(id: $id, name: $name, mapType: $mapType, '
-           'timeMode: $timeMode, manualTheme: $manualTheme)';
+    return 'WorldConfig('
+           'id: $id, '
+           'name: $name, '
+           'mapType: $mapType, '
+           'timeMode: $timeMode, '
+           'manualTheme: $manualTheme, '
+           'carouselIndex: $carouselIndex'
+           ')';
   }
 }

@@ -9,7 +9,13 @@ import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
 import 'package:map_mvp_project/models/world_config.dart';
 
 class EarthCreatorPage extends StatefulWidget {
-  const EarthCreatorPage({Key? key}) : super(key: key);
+  /// The carousel card index this "new world" is associated with.
+  final int carouselIndex;
+
+  const EarthCreatorPage({
+    Key? key,
+    required this.carouselIndex,
+  }) : super(key: key);
 
   @override
   State<EarthCreatorPage> createState() => _EarthCreatorPageState();
@@ -18,14 +24,15 @@ class EarthCreatorPage extends StatefulWidget {
 class _EarthCreatorPageState extends State<EarthCreatorPage> {
   final TextEditingController _nameController = TextEditingController();
 
-  /// Whether we auto-adjust the time bracket (dawn/day/dusk/night) by local time.
-  bool _adjustAfterTime = true;
-
-  /// Whether the user wants Satellite map vs. Standard map.
+  /// Whether the user wants a satellite map vs. standard map.
   bool _isSatellite = false;
 
+  /// Whether we auto-adjust the time bracket (dawn/day/dusk/night) by local time.
+  /// Now defaults to false, so user chooses manually by default.
+  bool _adjustAfterTime = false;
+
   /// Manual choice of theme bracket if [_adjustAfterTime] == false.
-  String _selectedTheme = 'Day'; // "Dawn", "Day", "Dusk", or "Night"
+  String _selectedTheme = 'Day'; // "Dawn", "Day", "Dusk", "Night"
 
   // A repository to store newly created worlds in Hive
   late LocalWorldsRepository _worldConfigsRepo;
@@ -43,25 +50,24 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     super.dispose();
   }
 
-  /// Determine a bracket (Dawn/Day/Dusk/Night) based on local time.
+  /// Simple bracket logic: 4-7 => Dawn, 7-17 => Day, 17-20 => Dusk, else Night
   String _determineTimeBracket() {
-    final now = DateTime.now();
-    final hour = now.hour;
-
-    // Simple example intervals:
-    // Dawn: 4–7, Day: 7–17, Dusk: 17–20, Night: 20–4
+    final hour = DateTime.now().hour;
     if (hour >= 4 && hour < 7) return 'Dawn';
     if (hour >= 7 && hour < 17) return 'Day';
     if (hour >= 17 && hour < 20) return 'Dusk';
     return 'Night';
   }
 
-  /// Based on the user’s toggles, compute the correct image asset path.
-  String get _themeImagePath {
-    // 1) Figure out the final bracket (auto vs. manual)
-    final bracket = _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
+  /// Returns the bracket that should be displayed: 
+  /// if user toggled on "auto" => time-based, else the selected dropdown
+  String get _currentBracket {
+    return _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
+  }
 
-    // 2) If satellite is chosen, prefix "Satellite-"
+  /// Pick the correct PNG path based on bracket & whether it's satellite.
+  String get _themeImagePath {
+    final bracket = _currentBracket;
     if (_isSatellite) {
       switch (bracket) {
         case 'Dawn':
@@ -90,7 +96,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     }
   }
 
-  /// Show an alert dialog if the user’s world name is invalid
+  /// Show an alert if the user’s world name is invalid
   void _showNameErrorDialog() {
     showDialog(
       context: context,
@@ -109,32 +115,27 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     );
   }
 
-  /// Handle the Save button:
-  ///  1) Validate name length
-  ///  2) Construct & store a WorldConfig
-  ///  3) Pop the page if successful
+  /// Called when user taps "Save"
   Future<void> _handleSave() async {
     final name = _nameController.text.trim();
 
-    // 1) Validate name
+    // Validate name length
     if (name.length < 3 || name.length > 20) {
       _showNameErrorDialog();
       return;
     }
 
-    // 2) Determine which bracket is actually used
+    // If auto => bracket = time-based; else bracket = dropdown
     final bracket = _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
 
-    // 3) Determine map type
+    // "satellite" or "standard"
     final mapType = _isSatellite ? 'satellite' : 'standard';
 
-    // 4) timeMode: "auto" if adjustAfterTime==true, else "manual"
+    // "auto" if _adjustAfterTime == true, else "manual"
     final timeMode = _adjustAfterTime ? 'auto' : 'manual';
-
-    // 5) If timeMode == 'manual', store bracket in manualTheme; else null
+    // If manual => store bracket, else null
     final manualTheme = (timeMode == 'manual') ? bracket : null;
 
-    // 6) Build the WorldConfig object
     final worldId = const Uuid().v4();
     final newWorldConfig = WorldConfig(
       id: worldId,
@@ -142,13 +143,13 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
       mapType: mapType,
       timeMode: timeMode,
       manualTheme: manualTheme,
+      carouselIndex: widget.carouselIndex, // <--- pass the index here
     );
 
-    // 7) Save to Hive
     try {
       await _worldConfigsRepo.addWorldConfig(newWorldConfig);
       logger.i('Saved new WorldConfig with ID=$worldId: $newWorldConfig');
-      Navigator.pop(context); // Return to the previous screen
+      Navigator.pop(context); // Return to previous screen
     } catch (e, stackTrace) {
       logger.e('Error saving new WorldConfig', error: e, stackTrace: stackTrace);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -164,16 +165,15 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // ~40% of screen for the preview
+    // ~40% of screen for preview
     final double previewW = screenWidth * 0.4;
     final double previewH = screenHeight * 0.4;
+    // Center it vertically
     final double previewTop = (screenHeight - previewH) / 2;
 
-    // We'll pin toggles near the top-right
+    // Tweak positions for the toggles + potential dropdown
     const double togglesTop = 60.0;
     const double togglesRight = 16.0;
-
-    // If manual dropdown is needed, place it somewhat below the toggles
     const double dropdownTop = togglesTop + 80;
     const double dropdownRight = 16.0;
 
@@ -181,7 +181,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // (A) BACK BUTTON top-left
+            // (1) BACK BUTTON top-left
             Positioned(
               top: 16,
               left: 16,
@@ -194,7 +194,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (B) WORLD NAME top-center
+            // (2) WORLD NAME (top-center)
             Positioned(
               top: 16,
               left: 0,
@@ -215,14 +215,14 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (C) Toggle row (top-right) for Satellite/Standard, and "Adjust by Time"
+            // (3) Toggle row for Satellite vs Standard & "adjustAfterTime" (top-right)
             Positioned(
               top: togglesTop,
               right: togglesRight,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Satellite vs. Standard, with toggled label
+                  // Satellite vs. Standard
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -238,16 +238,20 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                       ),
                     ],
                   ),
-                  // Adjust by time
+                  // Our "Choose own style" vs "Style follows time"
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Adjust by Time'),
+                      Text(
+                        _adjustAfterTime ? 'Style follows time' : 'Choose own style',
+                      ),
                       Switch(
                         value: _adjustAfterTime,
                         onChanged: (newVal) {
                           setState(() => _adjustAfterTime = newVal);
-                          logger.i('Adjust after time toggled -> $_adjustAfterTime');
+                          logger.i(
+                            'Adjust after time toggled -> $_adjustAfterTime',
+                          );
                         },
                       ),
                     ],
@@ -256,7 +260,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (D) If user turned off _adjustAfterTime, show the manual dropdown
+            // (4) If user turned OFF time-adjust => show the manual dropdown
             if (!_adjustAfterTime)
               Positioned(
                 top: dropdownTop,
@@ -283,7 +287,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                 ),
               ),
 
-            // (E) IMAGE PREVIEW (~40% W/H), centered
+            // (5) IMAGE PREVIEW (~40% W/H), centered
             Positioned(
               top: previewTop,
               left: (screenWidth - previewW) / 2,
@@ -293,14 +297,14 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.asset(
-                    _themeImagePath, // <--- Show actual image from logic above
+                    _themeImagePath,
                     fit: BoxFit.contain,
                   ),
                 ),
               ),
             ),
 
-            // (F) SAVE BUTTON bottom-center
+            // (6) SAVE BUTTON bottom-center
             Positioned(
               left: 0,
               right: 0,
