@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart'; // <-- if you still want direct box inspection
+import 'package:hive/hive.dart'; // for directly inspecting the box if needed
 import 'package:map_mvp_project/models/world_config.dart';
 import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
@@ -27,7 +27,7 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
   String? _errorMessage;
 
   /// This will be the index we pass to the Carousel as the starting centered card.
-  /// Default to 4 if we can’t find anything else or if user has no worlds.
+  /// Default to 4 if we find no specific info in prefs or zero worlds in Hive.
   int _carouselInitialIndex = 4;
 
   @override
@@ -35,12 +35,13 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
     super.initState();
     logger.i('WorldSelectorPage initState: setting up repo, fetch worlds, load index');
 
+    // 1) Initialize the local repository for worlds.
     _worldsRepo = LocalWorldsRepository();
 
-    // 1) Fetch the worlds from Hive.
+    // 2) Fetch the worlds from Hive.
     _fetchAllWorlds();
 
-    // 2) Load the "last used" index from local app prefs (if any).
+    // 3) Load the "last used" index from local app prefs (if any).
     _loadLastUsedIndex();
   }
 
@@ -54,7 +55,7 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
         setState(() => _carouselInitialIndex = idx);
       }
     } catch (e) {
-      // If reading fails or no value found, we keep default of 4.
+      // If reading fails or no value was stored, we just keep the default of 4.
       logger.w('Could not read lastUsedCarouselIndex: $e. Using default=4.');
     }
   }
@@ -93,10 +94,10 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
       // 2) Re-fetch to update our UI state
       await _fetchAllWorlds();
 
-      // 3) Also reset the stored "last used index"
+      // 3) Also reset the stored "last used index" to 4
       await LocalAppPreferences.setLastUsedCarouselIndex(4);
 
-      // 4) Quick confirmation
+      // 4) Show a quick confirmation
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('All worlds cleared.')),
@@ -135,14 +136,13 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
       );
     }
 
-    // 3) Normal UI path:
+    // 3) Normal UI logic:
     try {
       final double screenHeight = MediaQuery.of(context).size.height;
       final double availableHeight = screenHeight - 56 - 40;
       logger.d('ScreenHeight=$screenHeight, availableHeight=$availableHeight');
 
-      // If user has zero worlds, fallback to index=4 (the middle).
-      // Otherwise, we respect the lastUsedCarouselIndex from app prefs.
+      // If user has zero worlds, fallback to index=4 (the “middle” card).
       if (_worldConfigs.isEmpty) {
         logger.i('No worlds found -> forcing carousel index=4');
         _carouselInitialIndex = 4;
@@ -162,6 +162,7 @@ class _WorldSelectorPageState extends State<WorldSelectorPage> {
                 child: CarouselWidget(
                   availableHeight: availableHeight,
                   initialIndex: _carouselInitialIndex,
+                  worldConfigs: _worldConfigs, // <— pass the stored worlds
                 ),
               ),
             ),
