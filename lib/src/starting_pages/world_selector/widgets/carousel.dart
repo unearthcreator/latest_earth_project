@@ -5,7 +5,6 @@ import 'package:map_mvp_project/models/world_config.dart';
 
 /// A carousel that displays up to 10 cards for indices 0..9.
 /// - If the user has a WorldConfig with `carouselIndex == i`, we show that title.
-/// - If i == 4, we show "History Tour".
 /// - Else show "Unearth".
 /// 
 /// When the *centered* card is tapped, we invoke [onCenteredCardTapped].
@@ -63,9 +62,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
         final world = _findWorldForIndex(index);
 
         // Decide the card title
-        final cardTitle = (index == 4)
-            ? 'History Tour'
-            : world?.name ?? 'Unearth';
+        final cardTitle = world?.name ?? 'Unearth';
 
         return GestureDetector(
           onTap: () {
