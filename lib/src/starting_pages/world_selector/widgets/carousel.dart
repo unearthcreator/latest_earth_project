@@ -15,14 +15,14 @@ class CarouselWidget extends StatefulWidget {
   final List<WorldConfig> worldConfigs;
 
   /// Callback: user tapped the currently centered card => pass index out.
-  final void Function(int index)? onCenteredCardTapped;
+  final void Function(BuildContext context, int index)? onCardTapped;
 
   const CarouselWidget({
     Key? key,
     required this.availableHeight,
     this.initialIndex = 4,
     required this.worldConfigs,
-    this.onCenteredCardTapped,
+    this.onCardTapped,
   }) : super(key: key);
 
   @override
@@ -36,7 +36,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    logger.i('CarouselWidget initState -> starting index=$_currentIndex');
+    logger.i('CarouselWidget initialized with starting index=$_currentIndex');
   }
 
   @override
@@ -56,26 +56,16 @@ class _CarouselWidgetState extends State<CarouselWidget> {
         },
       ),
       itemBuilder: (context, index, realIdx) {
-        final double opacity = (index == _currentIndex) ? 1.0 : 0.2;
+        final isSelected = index == _currentIndex;
+        final double opacity = isSelected ? 1.0 : 0.2;
 
-        // Does a WorldConfig exist for this card index?
+        // Find the corresponding world config, if available
         final world = _findWorldForIndex(index);
-
-        // Decide the card title
-        final cardTitle = world?.name ?? 'Unearth';
-
-        // Determine the image path based on world config
-        final imagePath = _getImagePath(world);
 
         return GestureDetector(
           onTap: () {
             logger.i('Card at index $index tapped.');
-            // Only do something if it’s the centered card
-            if (index == _currentIndex) {
-              widget.onCenteredCardTapped?.call(index);
-            } else {
-              logger.i('Not centered -> no action');
-            }
+            widget.onCardTapped?.call(context, index);
           },
           child: Opacity(
             opacity: opacity,
@@ -102,7 +92,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Text(
-                        cardTitle,
+                        world?.name ?? 'Unearth', // Default to "Unearth"
                         style: const TextStyle(
                           fontSize: 20,
                           color: Colors.white,
@@ -113,19 +103,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
 
                     // Image in the center, ensuring no cutoff
                     Expanded(
-                      child: imagePath != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: FractionallySizedBox(
-                                widthFactor: 0.7, // Reduce width to 70%
-                                heightFactor: 0.7, // Reduce height to 70%
-                                child: Image.asset(
-                                  imagePath,
-                                  fit: BoxFit.contain, // Ensure full globe is visible
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
+                      child: _buildImage(world),
                     ),
                   ],
                 ),
@@ -137,6 +115,27 @@ class _CarouselWidgetState extends State<CarouselWidget> {
     );
   }
 
+  /// Builds the image widget for the given world configuration.
+  Widget _buildImage(WorldConfig? world) {
+    final imagePath = _getImagePath(world);
+    if (imagePath != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: FractionallySizedBox(
+          widthFactor: 0.7,
+          heightFactor: 0.7,
+          child: Image.asset(
+            imagePath,
+            fit: BoxFit.contain,
+          ),
+        ),
+      );
+    } else {
+      return const SizedBox.shrink();
+    }
+  }
+
+  /// Finds the corresponding WorldConfig for the given index, if available.
   WorldConfig? _findWorldForIndex(int idx) {
     for (final w in widget.worldConfigs) {
       if (w.carouselIndex == idx) return w;
@@ -144,6 +143,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
     return null;
   }
 
+  /// Gets the image path based on the world configuration.
   String? _getImagePath(WorldConfig? world) {
     if (world == null) return null;
 
