@@ -111,12 +111,19 @@ class _CarouselWidgetState extends State<CarouselWidget> {
                       ),
                     ),
 
-                    // Image in the center
+                    // Image in the center, ensuring no cutoff
                     Expanded(
                       child: imagePath != null
-                          ? Image.asset(
-                              imagePath,
-                              fit: BoxFit.cover,
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: FractionallySizedBox(
+                                widthFactor: 0.7, // Reduce width to 70%
+                                heightFactor: 0.7, // Reduce height to 70%
+                                child: Image.asset(
+                                  imagePath,
+                                  fit: BoxFit.contain, // Ensure full globe is visible
+                                ),
+                              ),
                             )
                           : const SizedBox.shrink(),
                     ),
