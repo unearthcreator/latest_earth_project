@@ -21,7 +21,13 @@ import 'package:map_mvp_project/src/earth_pages/annotations/annotation_id_linker
 import 'package:map_mvp_project/src/earth_pages/utils/map_queries.dart';
 
 class EarthMapPage extends StatefulWidget {
-  const EarthMapPage({super.key});
+  final String worldId; // Unique ID of the world to load
+
+  const EarthMapPage({
+    Key? key,
+    required this.worldId,
+  }) : super(key: key);
+
 
   @override
   EarthMapPageState createState() => EarthMapPageState();

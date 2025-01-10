@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/models/world_config.dart';
+import 'package:map_mvp_project/src/starting_pages/world_selector/widgets/widget_utils/card_tap_handler.dart';
 
 /// A carousel that displays up to 10 cards for indices 0..9.
 /// - If the user has a WorldConfig with `carouselIndex == i`, we show that title.
@@ -72,7 +73,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
             logger.i('Card at index $index tapped.');
             // Only do something if it’s the centered card
             if (index == _currentIndex) {
-              widget.onCenteredCardTapped?.call(index);
+              handleCardTap(context, index, worldId: world?.id);
             } else {
               logger.i('Not centered -> no action');
             }
