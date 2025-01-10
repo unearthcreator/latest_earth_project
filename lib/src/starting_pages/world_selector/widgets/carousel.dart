@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:map_mvp_project/services/error_handler.dart';
-import 'package:map_mvp_project/src/earth_pages/earth_map_page.dart';
-import 'package:map_mvp_project/src/starting_pages/world_selector/earth_creator/earth_creator.dart';
+import 'package:map_mvp_project/models/world_config.dart';
 
-import 'package:map_mvp_project/models/world_config.dart'; // so we can access WorldConfig
-
-/// A carousel that displays up to 10 cards, each corresponding to an
-/// index from 0..9. If the [worldConfigs] list contains a WorldConfig
-/// whose carouselIndex == the card index, we show that world’s title;
-/// otherwise we show "Unearth" or "History Tour" if index == 4.
+/// A carousel that displays up to 10 cards for indices 0..9.
+/// - If the user has a WorldConfig with `carouselIndex == i`, we show that title.
+/// - If i == 4, we show "History Tour".
+/// - Else show "Unearth".
+/// 
+/// When the *centered* card is tapped, we invoke [onCenteredCardTapped].
+/// The parent (WorldSelectorPage) handles the navigation logic.
 class CarouselWidget extends StatefulWidget {
   final double availableHeight;
   final int initialIndex;
   final List<WorldConfig> worldConfigs;
 
-  /// This callback is invoked if the *centered* card is tapped.
-  /// E.g., WorldSelectorPage will handle the actual navigation logic.
+  /// Callback: user tapped the currently centered card => pass index out.
   final void Function(int index)? onCenteredCardTapped;
 
   const CarouselWidget({
@@ -38,7 +37,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    logger.i('CarouselWidget initState -> starting at index=$_currentIndex');
+    logger.i('CarouselWidget initState -> starting index=$_currentIndex');
   }
 
   @override
@@ -54,26 +53,28 @@ class _CarouselWidgetState extends State<CarouselWidget> {
         viewportFraction: 0.35,
         onPageChanged: (idx, reason) {
           setState(() => _currentIndex = idx);
-          logger.i('Carousel page changed -> idx=$idx, reason=$reason');
+          logger.i('Carousel changed -> idx=$idx, reason=$reason');
         },
       ),
       itemBuilder: (context, index, realIdx) {
         final double opacity = (index == _currentIndex) ? 1.0 : 0.2;
 
-        // see if there's an existing world for that card
-        final existingWorld = _findWorldForIndex(index);
+        // Does a WorldConfig exist for this card index?
+        final world = _findWorldForIndex(index);
+
+        // Decide the card title
         final cardTitle = (index == 4)
             ? 'History Tour'
-            : existingWorld?.name ?? 'Unearth';
+            : world?.name ?? 'Unearth';
 
         return GestureDetector(
           onTap: () {
             logger.i('Card at index $index tapped.');
+            // Only do something if it’s the centered card
             if (index == _currentIndex) {
-              // Tell the parent "user tapped the centered card"
               widget.onCenteredCardTapped?.call(index);
             } else {
-              logger.i('Tapped card #$index but it’s not centered -> no action');
+              logger.i('Not centered -> no action');
             }
           },
           child: Opacity(
