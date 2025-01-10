@@ -4,29 +4,27 @@ import 'package:map_mvp_project/services/error_handler.dart';
 import 'package:map_mvp_project/src/earth_pages/earth_map_page.dart';
 import 'package:map_mvp_project/src/starting_pages/world_selector/earth_creator/earth_creator.dart';
 
-import 'package:map_mvp_project/models/world_config.dart'; // <— so we can see WorldConfig
+import 'package:map_mvp_project/models/world_config.dart'; // so we can access WorldConfig
 
-/// A carousel displaying cards. Each card can be tapped to trigger an action:
-/// - If the card == the currently centered index:
-///   - If index == 4 -> go to EarthMapPage (History Tour).
-///   - Otherwise -> go to EarthCreatorPage, passing index as the "slot."
-/// - Tapping a non-centered card just logs a message (no action).
+/// A carousel that displays up to 10 cards, each corresponding to an
+/// index from 0..9. If the [worldConfigs] list contains a WorldConfig
+/// whose carouselIndex == the card index, we show that world’s title;
+/// otherwise we show "Unearth" or "History Tour" if index == 4.
 class CarouselWidget extends StatefulWidget {
   final double availableHeight;
-
-  /// The starting index to center on when the carousel first appears.
-  /// If not provided, defaults to 4 in this example.
   final int initialIndex;
-
-  /// The list of existing worlds from Hive, so we can check if a given
-  /// carousel card index already has a WorldConfig.
   final List<WorldConfig> worldConfigs;
+
+  /// This callback is invoked if the *centered* card is tapped.
+  /// E.g., WorldSelectorPage will handle the actual navigation logic.
+  final void Function(int index)? onCenteredCardTapped;
 
   const CarouselWidget({
     Key? key,
     required this.availableHeight,
     this.initialIndex = 4,
     required this.worldConfigs,
+    this.onCenteredCardTapped,
   }) : super(key: key);
 
   @override
@@ -34,77 +32,48 @@ class CarouselWidget extends StatefulWidget {
 }
 
 class _CarouselWidgetState extends State<CarouselWidget> {
-  /// We store the current index in state so we can highlight the centered card.
-  /// We’ll init it to the incoming `initialIndex`.
   late int _currentIndex;
 
   @override
   void initState() {
     super.initState();
-    // Start the carousel at the provided initial index
     _currentIndex = widget.initialIndex;
     logger.i('CarouselWidget initState -> starting at index=$_currentIndex');
   }
 
   @override
   Widget build(BuildContext context) {
-    logger.i('Building CarouselWidget with _currentIndex=$_currentIndex');
-
     return CarouselSlider.builder(
       itemCount: 10,
       options: CarouselOptions(
-        initialPage: _currentIndex,          // Use our state-based index
+        initialPage: _currentIndex,
         height: widget.availableHeight * 0.9,
         enlargeCenterPage: true,
         enlargeStrategy: CenterPageEnlargeStrategy.scale,
         enableInfiniteScroll: false,
         viewportFraction: 0.35,
-        onPageChanged: (index, reason) {
-          setState(() {
-            _currentIndex = index;
-          });
-          logger.i('Carousel page changed to index $index, reason: $reason');
+        onPageChanged: (idx, reason) {
+          setState(() => _currentIndex = idx);
+          logger.i('Carousel page changed -> idx=$idx, reason=$reason');
         },
       ),
       itemBuilder: (context, index, realIdx) {
-        // If this card == the centered index => fully opaque; else more translucent.
         final double opacity = (index == _currentIndex) ? 1.0 : 0.2;
 
-        // 1) Check if there's a WorldConfig for this `index`.
-        //    If yes, we'll display the stored `name`. Otherwise, "Unearth"
+        // see if there's an existing world for that card
         final existingWorld = _findWorldForIndex(index);
-        final cardTitle = (index == 4) 
+        final cardTitle = (index == 4)
             ? 'History Tour'
-            : (existingWorld != null) 
-                ? existingWorld.name  // The user-chosen world name
-                : 'Unearth';          // No world found => "Unearth"
+            : existingWorld?.name ?? 'Unearth';
 
         return GestureDetector(
           onTap: () {
             logger.i('Card at index $index tapped.');
             if (index == _currentIndex) {
-              if (index == 4) {
-                // "History Tour" card
-                logger.i('Navigating to EarthMapPage (History Tour).');
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const EarthMapPage()),
-                );
-              } else {
-                // "Unearth" scenario => pass that index to EarthCreatorPage
-                logger.i('Navigating to EarthCreatorPage with index=$index.');
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => EarthCreatorPage(carouselIndex: index),
-                  ),
-                );
-              }
+              // Tell the parent "user tapped the centered card"
+              widget.onCenteredCardTapped?.call(index);
             } else {
-              // Tapped a non-centered card => no action
-              logger.i(
-                'Tapped card at index $index but it is not centered. No action taken.',
-              );
+              logger.i('Tapped card #$index but it’s not centered -> no action');
             }
           },
           child: Opacity(
@@ -114,6 +83,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
+                  color: Colors.blueAccent,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -123,9 +93,7 @@ class _CarouselWidgetState extends State<CarouselWidget> {
                       offset: const Offset(0, 3),
                     ),
                   ],
-                  color: Colors.blueAccent,
                 ),
-                // Show either the "History Tour", existing world's name, or "Unearth"
                 child: Center(
                   child: Text(
                     cardTitle,
@@ -134,7 +102,6 @@ class _CarouselWidgetState extends State<CarouselWidget> {
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
@@ -145,12 +112,9 @@ class _CarouselWidgetState extends State<CarouselWidget> {
     );
   }
 
-  /// Helper to find if there's already a WorldConfig with `carouselIndex == index`.
-  WorldConfig? _findWorldForIndex(int index) {
-    for (final world in widget.worldConfigs) {
-      if (world.carouselIndex == index) {
-        return world;
-      }
+  WorldConfig? _findWorldForIndex(int idx) {
+    for (final w in widget.worldConfigs) {
+      if (w.carouselIndex == idx) return w;
     }
     return null;
   }

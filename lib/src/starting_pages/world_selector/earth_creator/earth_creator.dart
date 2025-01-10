@@ -6,7 +6,7 @@ import 'package:uuid/uuid.dart'; // For generating a unique ID
 import 'package:map_mvp_project/repositories/local_worlds_repository.dart';
 import 'package:map_mvp_project/models/world_config.dart';
 
-// <-- Import your local app preferences helper
+// Local app preferences helper (storing last-used carousel index, etc.)
 import 'package:map_mvp_project/repositories/local_app_preferences.dart';
 
 class EarthCreatorPage extends StatefulWidget {
@@ -124,26 +124,25 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
   Future<void> _handleSave() async {
     final name = _nameController.text.trim();
 
-    // Validate name length
+    // 1) Validate name length
     if (name.length < 3 || name.length > 20) {
       _showNameErrorDialog();
       return;
     }
 
-    // If auto => bracket = time-based; else bracket = dropdown
+    // 2) Decide which bracket to use (auto or manual)
     final bracket = _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
 
-    // "satellite" or "standard"
+    // 3) "satellite" or "standard"
     final mapType = _isSatellite ? 'satellite' : 'standard';
 
-    // "auto" if _adjustAfterTime == true, else "manual"
+    // 4) "auto" if _adjustAfterTime, else "manual"
     final timeMode = _adjustAfterTime ? 'auto' : 'manual';
-    // If manual => store bracket, else null
     final manualTheme = (timeMode == 'manual') ? bracket : null;
 
     final worldId = const Uuid().v4();
 
-    // Use widget.carouselIndex
+    // 5) Build a new WorldConfig
     final newWorldConfig = WorldConfig(
       id: worldId,
       name: name,
@@ -154,16 +153,15 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     );
 
     try {
-      // 1) Save the new world config in Hive
+      // 6) Save to Hive
       await _worldConfigsRepo.addWorldConfig(newWorldConfig);
       logger.i('Saved new WorldConfig with ID=$worldId: $newWorldConfig');
 
-      // 2) Also store *this* card index in your "app preferences" for later
-      //    so the World Selector can center on it again if we leave/return
+      // 7) Also store this “last used” index in local app prefs
       await LocalAppPreferences.setLastUsedCarouselIndex(widget.carouselIndex);
 
-      // 3) Go back to the previous screen (WorldSelector)
-      Navigator.pop(context);
+      // 8) Pop back to WorldSelector, returning `true` so that page can re-fetch
+      Navigator.pop(context, true); 
     } catch (e, stackTrace) {
       logger.e('Error saving new WorldConfig', error: e, stackTrace: stackTrace);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -182,11 +180,10 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
     // ~40% of screen for preview
     final double previewW = screenWidth * 0.4;
     final double previewH = screenHeight * 0.4;
-
     // Center it vertically
     final double previewTop = (screenHeight - previewH) / 2;
 
-    // Positions for toggles & drop-down
+    // Positions for toggles & dropdown
     const double togglesTop = 60.0;
     const double togglesRight = 16.0;
     const double dropdownTop = togglesTop + 80;
@@ -203,7 +200,8 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               child: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () {
-                  Navigator.pop(context);
+                  // If user cancels, just pop with `false` or no argument
+                  Navigator.pop(context, false);
                   logger.i('User tapped back button on EarthCreatorPage');
                 },
               ),
@@ -246,7 +244,10 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                         value: _isSatellite,
                         onChanged: (newVal) {
                           setState(() => _isSatellite = newVal);
-                          logger.i('Map type toggled -> ${_isSatellite ? "Satellite" : "Standard"}');
+                          logger.i(
+                            'Map type toggled -> '
+                            '${_isSatellite ? "Satellite" : "Standard"}',
+                          );
                         },
                       ),
                     ],
@@ -271,7 +272,7 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
               ),
             ),
 
-            // (D) If user turned OFF time-adjust => show the manual dropdown
+            // (D) If user turned OFF "time-adjust," show the dropdown
             if (!_adjustAfterTime)
               Positioned(
                 top: dropdownTop,
@@ -283,9 +284,9 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
                       value: _selectedTheme,
                       items: const [
                         DropdownMenuItem(value: 'Dawn', child: Text('Dawn')),
-                        DropdownMenuItem(value: 'Day', child: Text('Day')),
+                        DropdownMenuItem(value: 'Day',  child: Text('Day')),
                         DropdownMenuItem(value: 'Dusk', child: Text('Dusk')),
-                        DropdownMenuItem(value: 'Night', child: Text('Night')),
+                        DropdownMenuItem(value: 'Night',child: Text('Night')),
                       ],
                       onChanged: (newValue) {
                         if (newValue != null) {
