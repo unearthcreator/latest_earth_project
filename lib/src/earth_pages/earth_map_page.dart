@@ -38,6 +38,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   late MapAnnotationsManager _annotationsManager;
   late MapGestureHandler _gestureHandler;
   late LocalAnnotationsRepository _localRepo;
+  WorldConfig? _worldConfig; // Store the loaded world configuration
 
   bool _isMapReady = false;
   bool _isError = false;
@@ -69,6 +70,7 @@ class EarthMapPageState extends State<EarthMapPage> {
   @override
   void initState() {
     super.initState();
+    _loadWorldConfig();
     logger.i('Initializing EarthMapPage');
     _addressController.addListener(_onAddressChanged);
   }
@@ -99,66 +101,52 @@ class EarthMapPageState extends State<EarthMapPage> {
   }
 
   Future<void> _onMapCreated(MapboxMap mapboxMap) async {
-    try {
-      logger.i('Starting map initialization');
-      _mapboxMap = mapboxMap;
+  try {
+    logger.i('Starting map initialization');
+    _mapboxMap = mapboxMap;
 
-      // Create the underlying Mapbox annotation manager:
-      final annotationManager = await mapboxMap.annotations
-          .createPointAnnotationManager()
-          .onError((error, stackTrace) {
-        logger.e('Failed to create annotation manager', error: error, stackTrace: stackTrace);
-        throw Exception('Failed to initialize map annotations');
+    if (_worldConfig != null) {
+      final mapType = _worldConfig!.mapType.toLowerCase();
+      final styleUri = mapType == 'satellite'
+          ? MapConfig.styleUriSatellite
+          : MapConfig.styleUriStandard;
+
+      // Apply the correct style to the Mapbox map
+      await _mapboxMap.loadStyleURI(styleUri);
+
+      logger.i('Applied style URI: $styleUri');
+    }
+
+    // Create the annotation manager
+    final annotationManager = await mapboxMap.annotations.createPointAnnotationManager();
+    _localRepo = LocalAnnotationsRepository();
+    _annotationsManager = MapAnnotationsManager(
+      annotationManager,
+      localAnnotationsRepository: _localRepo,
+    );
+
+    _gestureHandler = MapGestureHandler(
+      mapboxMap: mapboxMap,
+      annotationsManager: _annotationsManager,
+      context: context,
+      localAnnotationsRepository: _localRepo,
+    );
+
+    logger.i('Map initialization completed successfully');
+
+    if (mounted) {
+      setState(() => _isMapReady = true);
+    }
+  } catch (e, stackTrace) {
+    logger.e('Error during map initialization', error: e, stackTrace: stackTrace);
+    if (mounted) {
+      setState(() {
+        _isError = true;
+        _errorMessage = 'Failed to initialize map: ${e.toString()}';
       });
-
-      // Create a single LocalAnnotationsRepository
-      _localRepo = LocalAnnotationsRepository();
-
-      // Create a *single* shared AnnotationIdLinker instance
-      final annotationIdLinker = AnnotationIdLinker();
-
-      // Create our MapAnnotationsManager, passing the single linker
-      _annotationsManager = MapAnnotationsManager(
-        annotationManager,
-        annotationIdLinker: annotationIdLinker,
-        localAnnotationsRepository: _localRepo,
-      );
-
-      _gestureHandler = MapGestureHandler(
-        mapboxMap: mapboxMap,
-        annotationsManager: _annotationsManager,
-        context: context,
-        localAnnotationsRepository: _localRepo,
-        annotationIdLinker: annotationIdLinker, // <-- Pass it here
-        onAnnotationLongPress: _handleAnnotationLongPress,
-        onAnnotationDragUpdate: _handleAnnotationDragUpdate,
-        onDragEnd: _handleDragEnd,
-        onAnnotationRemoved: _handleAnnotationRemoved,
-        onConnectModeDisabled: () {
-          setState(() {
-            _isConnectMode = false;
-          });
-        },
-      );
-
-      logger.i('Map initialization completed successfully');
-
-      if (mounted) {
-        setState(() => _isMapReady = true);
-
-        // Now that the map is ready, load any previously saved Hive annotations
-        await _annotationsManager.loadAnnotationsFromHive();
-      }
-    } catch (e, stackTrace) {
-      logger.e('Error during map initialization', error: e, stackTrace: stackTrace);
-      if (mounted) {
-        setState(() {
-          _isError = true;
-          _errorMessage = 'Failed to initialize map: ${e.toString()}';
-        });
-      }
     }
   }
+}
 
   // ---------------------- Annotation UI & Callbacks ----------------------
 
@@ -190,6 +178,29 @@ class EarthMapPageState extends State<EarthMapPage> {
       _isDragging = false;
     });
   }
+
+  Future<void> _loadWorldConfig() async {
+  try {
+    final box = await Hive.openBox<WorldConfig>('worldConfigs');
+    final config = box.get(widget.worldId);
+
+    if (config == null) {
+      throw Exception('World configuration not found for id: ${widget.worldId}');
+    }
+
+    setState(() {
+      _worldConfig = config;
+    });
+
+    logger.i('Loaded world configuration: $_worldConfig');
+  } catch (e, stackTrace) {
+    logger.e('Error loading world configuration', error: e, stackTrace: stackTrace);
+    setState(() {
+      _isError = true;
+      _errorMessage = 'Failed to load world configuration: ${e.toString()}';
+    });
+  }
+}
 
   void _handleLongPress(LongPressStartDetails details) {
     try {
