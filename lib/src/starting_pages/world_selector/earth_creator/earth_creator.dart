@@ -121,54 +121,58 @@ class _EarthCreatorPageState extends State<EarthCreatorPage> {
   }
 
   /// Called when user taps "Save".
-  Future<void> _handleSave() async {
-    final name = _nameController.text.trim();
+  /// Called when user taps "Save".
+Future<void> _handleSave() async {
+  final name = _nameController.text.trim();
 
-    // 1) Validate name length
-    if (name.length < 3 || name.length > 20) {
-      _showNameErrorDialog();
-      return;
-    }
-
-    // 2) Decide which bracket to use (auto or manual)
-    final bracket = _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
-
-    // 3) "satellite" or "standard"
-    final mapType = _isSatellite ? 'satellite' : 'standard';
-
-    // 4) "auto" if _adjustAfterTime, else "manual"
-    final timeMode = _adjustAfterTime ? 'auto' : 'manual';
-    final manualTheme = (timeMode == 'manual') ? bracket : null;
-
-    final worldId = const Uuid().v4();
-
-    // 5) Build a new WorldConfig
-    final newWorldConfig = WorldConfig(
-      id: worldId,
-      name: name,
-      mapType: mapType,
-      timeMode: timeMode,
-      manualTheme: manualTheme,
-      carouselIndex: widget.carouselIndex,
-    );
-
-    try {
-      // 6) Save to Hive
-      await _worldConfigsRepo.addWorldConfig(newWorldConfig);
-      logger.i('Saved new WorldConfig with ID=$worldId: $newWorldConfig');
-
-      // 7) Also store this “last used” index in local app prefs
-      await LocalAppPreferences.setLastUsedCarouselIndex(widget.carouselIndex);
-
-      // 8) Pop back to WorldSelector, returning `true` so that page can re-fetch
-      Navigator.pop(context, true); 
-    } catch (e, stackTrace) {
-      logger.e('Error saving new WorldConfig', error: e, stackTrace: stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: failed to save world config')),
-      );
-    }
+  // 1) Validate name length
+  if (name.length < 3 || name.length > 20) {
+    _showNameErrorDialog();
+    return;
   }
+
+  // 2) Decide which bracket to use (auto or manual)
+  final bracket = _adjustAfterTime ? _determineTimeBracket() : _selectedTheme;
+
+  // 3) "satellite" or "standard"
+  final mapType = _isSatellite ? 'satellite' : 'standard';
+
+  // 4) "auto" if _adjustAfterTime, else "manual"
+  final timeMode = _adjustAfterTime ? 'auto' : 'manual';
+  final manualTheme = (timeMode == 'manual') ? bracket : null;
+
+  // These fields will later determine the image shown in the carousel:
+  // - mapType: "satellite" or "standard"
+  // - manualTheme: "Dawn", "Day", "Dusk", or "Night" (if timeMode == "manual")
+  final worldId = const Uuid().v4();
+
+  // 5) Build a new WorldConfig
+  final newWorldConfig = WorldConfig(
+    id: worldId,
+    name: name,
+    mapType: mapType,
+    timeMode: timeMode,
+    manualTheme: manualTheme,
+    carouselIndex: widget.carouselIndex,
+  );
+
+  try {
+    // 6) Save to Hive
+    await _worldConfigsRepo.addWorldConfig(newWorldConfig);
+    logger.i('Saved new WorldConfig with ID=$worldId: $newWorldConfig');
+
+    // 7) Also store this “last used” index in local app prefs
+    await LocalAppPreferences.setLastUsedCarouselIndex(widget.carouselIndex);
+
+    // 8) Pop back to WorldSelector, returning `true` so that page can re-fetch
+    Navigator.pop(context, true); 
+  } catch (e, stackTrace) {
+    logger.e('Error saving new WorldConfig', error: e, stackTrace: stackTrace);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Error: failed to save world config')),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {

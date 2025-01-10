@@ -64,6 +64,9 @@ class _CarouselWidgetState extends State<CarouselWidget> {
         // Decide the card title
         final cardTitle = world?.name ?? 'Unearth';
 
+        // Determine the image path based on world config
+        final imagePath = _getImagePath(world);
+
         return GestureDetector(
           onTap: () {
             logger.i('Card at index $index tapped.');
@@ -92,15 +95,32 @@ class _CarouselWidgetState extends State<CarouselWidget> {
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Text(
-                    cardTitle,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    // Title at the top
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        cardTitle,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
+
+                    // Image in the center
+                    Expanded(
+                      child: imagePath != null
+                          ? Image.asset(
+                              imagePath,
+                              fit: BoxFit.cover,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -115,5 +135,18 @@ class _CarouselWidgetState extends State<CarouselWidget> {
       if (w.carouselIndex == idx) return w;
     }
     return null;
+  }
+
+  String? _getImagePath(WorldConfig? world) {
+    if (world == null) return null;
+
+    final mapType = world.mapType.toLowerCase(); // e.g., "satellite" or "standard"
+    final theme = world.manualTheme?.toLowerCase() ?? 'day'; // Default to 'day'
+
+    if (mapType == 'satellite') {
+      return 'assets/earth_snapshot/Satellite-${theme[0].toUpperCase()}${theme.substring(1)}.png';
+    } else {
+      return 'assets/earth_snapshot/${theme[0].toUpperCase()}${theme.substring(1)}.png';
+    }
   }
 }
